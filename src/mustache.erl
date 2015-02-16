@@ -11,7 +11,7 @@
 %% Exported API
 %%----------------------------------------------------------------------------------------------------------------------
 -export([
-         new/1,
+         parse_string/1,
          parse_file/1,
          compile/2
         ]).
@@ -24,23 +24,21 @@
 %% Defines & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
 
--define(PARSE_ERROR, incorrect_format).
--define(FILE_ERROR, file_not_found).
+-define(PARSE_ERROR,        incorrect_format).
+-define(FILE_ERROR,         file_not_found).
 -define(COND(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
 
 -type key()  :: binary().
--type tag()  :: {n,   key()}          |
-                {'&', key()}          |
-                {'#', key(), [tag()]} |
-                {'^', key(), [tag()]} |
-                {'>', key()}          |
+-type tag()  :: {n,   key()}                              |
+                {'&', key()}                              |
+                {'#', key(), [tag()], Source :: binary()} |
+                {'^', key(), [tag()]}                     |
                 binary().
--type partial() :: {partial, {EndTag :: binary(), Rest :: binary(), [tag()]}}.
 
 -record(state,
         {
-          dirname = <<>>     :: filename:filename_all(),
+          dirname = <<>>     :: file:filename_all(),
           start   = <<"{{">> :: binary(),
           stop    = <<"}}">> :: binary()
         }).
@@ -52,37 +50,71 @@
         }).
 
 -opaque template() :: #?MODULE{}.
--type data()     :: #{string() => data() | iodata() | fun((data(), function()) -> iodata())}.
+-type data()       :: #{string() => data() | iodata() | fun((data(), function()) -> iodata())}.
+-type partial()    :: {partial, {state(), EndTag :: binary(), LastTagSize :: non_neg_integer(), Rest :: binary(), [tag()]}}.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
 %% @doc
--spec new(binary()) -> template().
-new(Bin) when is_binary(Bin) ->
-    new_impl(#state{}, Bin).
+-spec render(binary(), data()) -> binary().
+render(Bin, Map) ->
+    compile(parse_string(Bin), Map).
+
+%% @doc
+-spec parse_string(binary()) -> template().
+parse_string(Bin) when is_binary(Bin) ->
+    parse_string_impl(#state{}, Bin).
 
 %% @doc
 -spec parse_file(file:filename()) -> template().
 parse_file(Filename) ->
     case file:read_file(Filename) of
-        {ok, Bin} -> new_impl(#state{dirname = filename:dirname(Filename)}, Bin);
+        {ok, Bin} -> parse_string_impl(#state{dirname = filename:dirname(Filename)}, Bin);
         _         -> error(?FILE_ERROR, [Filename])
     end.
 
 %% @doc
 -spec compile(template(), data()) -> binary().
-compile(#?MODULE{}, Map) when is_map(Map) ->
-    hoge.
+compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
+    iolist_to_binary(lists:reverse(compile_impl(Tags, Map, []))).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Function
 %%----------------------------------------------------------------------------------------------------------------------
 
-%% @see new/1
--spec new_impl(state(), Input :: binary()) -> template().
-new_impl(State, Input) ->
+%% @see compile/2
+%%
+%% ATTENTION: The result is a list that is inverted.
+-spec compile_impl(Template :: [tag()], data(), Result :: iodata()) -> iodata().
+compile_impl([], _, Result) ->
+    Result;
+compile_impl([{n, Key} | T], Map, Result) ->
+    compile_impl(T, Map, [escape(maps:get(Key, Map)) | Result]);
+compile_impl([{'&', Key} | T], Map, Result) ->
+    compile_impl(T, Map, [maps:get(Key, Map) | Result]);
+compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
+    Value = maps:get(Key, Map, undefined),
+    if
+        is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
+                                                                  Result, Value));
+        Value =:= false       -> compile_impl(T, Map, Result);
+        is_function(Value, 2) -> compile_impl(T, Map, Value(Source, fun(Text) -> render(Text, Map) end));
+        true                  -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
+    end;
+compile_impl([{'^', Key, Tags} | T], Map, Result) ->
+    Value = maps:get(Key, Map, undefined),
+    case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
+        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result));
+        false -> compile_impl(T, Map, Result)
+    end;
+compile_impl([Bin | T], Map, Result) ->
+    compile_impl(T, Map, [Bin | Result]).
+
+%% @see parse_string/1
+-spec parse_string_impl(state(), Input :: binary()) -> template().
+parse_string_impl(State, Input) ->
     #?MODULE{data = parse(State, Input)}.
 
 %% @doc
@@ -132,7 +164,7 @@ parse3(State, [B1, B2], Result) ->
         <<"!", _/binary>> ->
             parse1(State, B2, Result);
         <<"/", Tag/binary>> ->
-            {partial, {State, remove_space_from_edge(Tag), B2, Result}};
+            {partial, {State, remove_space_from_edge(Tag), byte_size(B1) + 4, B2, Result}};
         <<">", Tag/binary>> ->
             parse_jump(State, remove_space_from_edge(Tag), B2, Result);
         Tag ->
@@ -147,8 +179,12 @@ parse3(_, _, _) ->
 -spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | partial().
 parse_loop(State0, Mark, Tag, Input, Result0) ->
     case parse1(State0, Input, []) of
-        {partial, {State, Tag, Rest, Result1}} when is_list(Result1) ->
-            parse1(State, Rest, [{Mark, Tag, lists:reverse(Result1)} | Result0]);
+        {partial, {State, Tag, LastTagSize, Rest, Result1}} when is_list(Result1) ->
+            case Mark of
+                '#' -> Source = binary:part(Input, 0, byte_size(Input) - byte_size(Rest) - LastTagSize),
+                       parse1(State, Rest, [{'#', Tag, lists:reverse(Result1), Source} | Result0]);
+                '^' -> parse1(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
+            end;
         _ ->
             error(?PARSE_ERROR)
     end.
@@ -169,12 +205,12 @@ parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
 
 %% @doc Update delimiter part of the `parse/1'
 %%
-%% NewDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
--spec parse_delimiter(state(), NewDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
-parse_delimiter(State0, NewDelimiterBin, NextBin, Result) ->
-    case binary:match(NewDelimiterBin, <<"=">>) of
+%% Parse_StringDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
+-spec parse_delimiter(state(), Parse_StringDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
+parse_delimiter(State0, Parse_StringDelimiterBin, NextBin, Result) ->
+    case binary:match(Parse_StringDelimiterBin, <<"=">>) of
         nomatch ->
-            case [X || X <- binary:split(NewDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
+            case [X || X <- binary:split(Parse_StringDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
                 [Start, Stop] -> parse1(State0#state{start = Start, stop = Stop}, NextBin, Result);
                 _             -> error(?PARSE_ERROR)
             end;
@@ -207,18 +243,33 @@ remove_space_from_tail_impl([{X, Y} | T], Size) when Size =:= X + Y ->
 remove_space_from_tail_impl(_, Size) ->
     Size.
 
+%% @doc HTML Escape
+-spec escape(iodata()) -> binary().
+escape(IoData) ->
+    Bin = iolist_to_binary(IoData),
+    << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
+
+%% @see escape/1
+-spec escape_char(0..16#FFFF) -> binary().
+escape_char($<) -> <<"&lt;">>;
+escape_char($>) -> <<"&gt;">>;
+escape_char($&) -> <<"&amp;">>;
+escape_char($") -> <<"&quot;">>;
+escape_char($') -> <<"&apos;">>;
+escape_char(C)  -> <<C:8>>.
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Unit Tests
 %%----------------------------------------------------------------------------------------------------------------------
 
 -ifdef(TEST).
 
--define(NT_S(X, Y), ?_assertEqual(#?MODULE{data=X}, ?MODULE:new(Y))).
-%% new_test generater (success case)
--define(NT_F(X),    ?_assertError(_,                ?MODULE:new(X))).
-%% new_test generater (failure case)
+-define(NT_S(X, Y), ?_assertEqual(#?MODULE{data=X}, ?MODULE:parse_string(Y))).
+%% parse_string_test generater (success case)
+-define(NT_F(X),    ?_assertError(_,                ?MODULE:parse_string(X))).
+%% parse_string_test generater (failure case)
 
-new_test_() ->
+parse_string_test_() ->
     [
      {"{{tag}}",     ?NT_S([<<"a">>, {n, <<"t">>}, <<"b">>],   <<"a{{t}}b">>)},
      {"{{ tag }}",   ?NT_S([<<>>, {n, <<"t">>}, <<>>],         <<"{{ t }}">>)},
@@ -236,14 +287,16 @@ new_test_() ->
 
      {"{{#tag}}",    ?NT_F(<<"{{#tag}}">>)},
      {"{{#tag1}}{{#tag2}}{{name}}{{/tag1}}{{/tag2}}",
-      ?NT_S([<<"a">>, {'#', <<"t1">>, [<<"b">>, {'#', <<"t2">>, [<<"c">>, {n, <<"t3">>}, <<"d">>]}, <<"e">>]}, <<"f">>],
+      ?NT_S([<<"a">>, {'#', <<"t1">>, [<<"b">>,
+                                       {'#', <<"t2">>, [<<"c">>, {n, <<"t3">>}, <<"d">>], <<"c{{t3}}d">>},
+                                       <<"e">>], <<"b{{#t2}}c{{t3}}d{{/t2}}e">>}, <<"f">>],
             <<"a{{#t1}}b{{#t2}}c{{t3}}d{{/t2}}e{{/t1}}f">>)},
      {"{{#tag1}}{{#tag2}}{{/tag1}}{{/tag2}}", ?NT_F(<<"{{#t1}}{{#t2}}{{/t1}}{{/t2}}">>)},
 
-     {"{{# tag}}{{/ tag}}",     ?NT_S([<<>>, {'#', <<"tag">>, [<<>>]}, <<>>],  <<"{{# tag}}{{/ tag}}">>)},
-     {"{{ #tag }}{{ / tag }}",  ?NT_S([<<>>, {'#', <<"tag">>, [<<>>]}, <<>>],  <<"{{ #tag }}{{ / tag }}">>)},
-     {"{{ # tag }}{{ /tag }}",  ?NT_S([<<>>, {'#', <<"tag">>, [<<>>]}, <<>>],  <<"{{ # tag }}{{ /tag }}">>)},
-     {"{{ # ta g}}{{ / ta g}}", ?NT_S([<<>>, {'#', <<"ta g">>, [<<>>]}, <<>>], <<"{{ # ta g}}{{ / ta g}}">>)},
+     {"{{# tag}}{{/ tag}}",     ?NT_S([<<>>, {'#', <<"tag">>,  [<<>>], <<>>}, <<>>], <<"{{# tag}}{{/ tag}}">>)},
+     {"{{ #tag }}{{ / tag }}",  ?NT_S([<<>>, {'#', <<"tag">>,  [<<>>], <<>>}, <<>>], <<"{{ #tag }}{{ / tag }}">>)},
+     {"{{ # tag }}{{ /tag }}",  ?NT_S([<<>>, {'#', <<"tag">>,  [<<>>], <<>>}, <<>>], <<"{{ # tag }}{{ /tag }}">>)},
+     {"{{ # ta g}}{{ / ta g}}", ?NT_S([<<>>, {'#', <<"ta g">>, [<<>>], <<>>}, <<>>], <<"{{ # ta g}}{{ / ta g}}">>)},
 
      {"{{!comment}}",           ?NT_S([<<"a">>, <<"c">>], <<"a{{!comment}}c">>)},
      {"{{! comment }}",         ?NT_S([<<>>, <<>>],       <<"{{! comment }}">>)},
@@ -265,7 +318,7 @@ new_test_() ->
       ?NT_S([<<"a">>, <<"b{{n}}c">>, {n, <<"n">>}, <<"d">>, <<"e">>, {n, <<"m">>}, <<"f<<m>>g">>],
             <<"a{{=<< >>=}}b{{n}}c<<n>>d<<={{ }}=>>e{{m}}f<<m>>g">>)},
      {"{{=<< >>=}}<<#tag>><<{n}>><</tag>>",
-      ?NT_S([<<>>, <<>>, {'#', <<"tag">>, [<<>>, {'&', <<"n">>}, <<>>]}, <<>>], <<"{{=<< >>=}}<<#tag>><<{n}>><</tag>>">>)},
+      ?NT_S([<<>>, <<>>, {'#', <<"tag">>, [<<>>, {'&', <<"n">>}, <<>>], <<"<<{n}>>">>}, <<>>], <<"{{=<< >>=}}<<#tag>><<{n}>><</tag>>">>)},
 
      {"{{=<<  >>=}}<<n>>",      ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{=<<  >>=}}<<n>>">>)},
      {"{{ = << >> = }}<<n>>",   ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{ = << >> = }}<<n>>">>)},
