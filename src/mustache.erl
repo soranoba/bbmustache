@@ -92,49 +92,76 @@ parse(State, Bin) ->
         Tags         -> lists:reverse(Tags)
     end.
 
-%% @doc 1st phase of the `parse/1'
+%% @doc Part of the `parse/1'
 %%
 %% ATTENTION: The result is a list that is inverted.
 -spec parse1(state(), Input :: binary(), Result :: [tag()]) -> [tag()] | partial().
-parse1(#state{start = Start} = State, Bin, Result) ->
-    %% `<<"hoge{{tag}}foo">>' => `[<<"hoge">>, <<"tag}}foo">>]'
+parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
     case binary:split(Bin, Start) of
-        []       -> Result;
-        [B1]     -> [B1 | Result];
-        [B1, B2] -> parse2(State, B2, [B1 | Result])
+        []                       -> Result;
+        [B1]                     -> [B1 | Result];
+        [B1, <<"{", B2/binary>>] -> parse2(State, binary:split(B2, <<"}", Stop/binary>>), [B1 | Result]);
+        [B1, B2]                 -> parse3(State, binary:split(B2, Stop),                 [B1 | Result])
     end.
 
-%% @doc 2nd phase of the `parse/1'
+%% @doc Part of the `parse/1'
 %%
-%% ATTENTION: The result is list that is inverted.
--spec parse2(state(), Input :: binary(), Result :: [tag()]) -> [tag()] | partial().
-parse2(#state{stop = Stop} = State, Bin, Result) ->
-    %% `<<"hoge}}foo...">>' => `[<<"hoge">>, <<"foo...">>]'
-    case binary:split(Bin, Stop) of
-        [B1, B2] ->
-            %% TODO: must not replace !!
-            Tag0 = binary:replace(B1, <<" ">>, <<>>, [global]),
-            case Tag0 of
-                <<"{", Tag/binary>> ->
-                    case B2 of
-                        <<"}", B3/binary>> -> parse1(State, B3, [{'&', Tag} | Result]);
-                        _                  -> error(?PARSE_ERROR)
-                    end;
-                <<"&", Tag/binary>> ->
-                    parse1(State, B2, [{'&', Tag} | Result]);
-                <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
-                    parse_loop(State, ?COND(T =:= $#, '#', '^'), Tag, B2, Result);
-                <<"=", _/binary>> ->
-                    parse_delimiter(State, B1, B2, Result);
-                <<"!", _/binary>> ->
-                    parse1(State, B2, Result);
-                <<"/", Tag/binary>> ->
-                    {partial, {State, Tag, B2, Result}};
-                _  ->
-                    parse1(State, B2, [{n, Tag0} | Result])
+%% ATTENTION: The result is a list that is inverted.
+parse2(State, [B1, B2], Result) ->
+    parse1(State, B2, [{'&', remove_space_from_edge(B1)} | Result]);
+parse2(_, _, _) ->
+    error(?PARSE_ERROR).
+
+%% @doc Part of the `parse/1'
+%%
+%% ATTENTION: The result is a list that is inverted.
+parse3(State, [B1, B2], Result) ->
+    case remove_space_from_head(B1) of
+        <<"&", Tag/binary>> ->
+            parse1(State, B2, [{'&', remove_space_from_edge(Tag)} | Result]);
+        <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
+            parse_loop(State, ?COND(T =:= $#, '#', '^'), remove_space_from_edge(Tag), B2, Result);
+        <<"=", Tag0/binary>> ->
+            Tag1 = remove_space_from_tail(Tag0),
+            Size = byte_size(Tag1) - 1,
+            case Size >= 0 andalso Tag1 of
+                <<Tag2:Size/binary, "=">> -> parse_delimiter(State, Tag2, B2, Result);
+                _                         -> error(?PARSE_ERROR)
             end;
-        _  -> error(?PARSE_ERROR)
-    end.
+        <<"!", _/binary>> ->
+            parse1(State, B2, Result);
+        <<"/", Tag/binary>> ->
+            {partial, {State, remove_space_from_edge(Tag), B2, Result}};
+        Tag ->
+            parse1(State, B2, [{n, remove_space_from_tail(Tag)} | Result])
+    end;
+parse3(_, _, _) ->
+    error(?PARSE_ERROR).
+
+%% @doc Remove the space from the edge.
+-spec remove_space_from_edge(binary()) -> binary().
+remove_space_from_edge(Bin) ->
+    remove_space_from_tail(remove_space_from_head(Bin)).
+
+%% @doc Remove the space from the head.
+-spec remove_space_from_head(binary()) -> binary().
+remove_space_from_head(<<" ", Rest/binary>>) -> remove_space_from_head(Rest);
+remove_space_from_head(Bin)                  -> Bin.
+
+%% @doc Remove the space from the tail.
+-spec remove_space_from_tail(binary()) -> binary().
+remove_space_from_tail(<<>>) -> <<>>;
+remove_space_from_tail(Bin) ->
+    PosList = binary:matches(Bin, <<" ">>),
+    LastPos = remove_space_from_tail_impl(lists:reverse(PosList), byte_size(Bin)),
+    binary:part(Bin, 0, LastPos).
+
+%% @see remove_space_from_tail/1
+-spec remove_space_from_tail_impl([{non_neg_integer(), pos_integer()}], non_neg_integer()) -> non_neg_integer().
+remove_space_from_tail_impl([{X, Y} | T], Size) when Size =:= X + Y ->
+    remove_space_from_tail_impl(T, X);
+remove_space_from_tail_impl(_, Size) ->
+    Size.
 
 %% @doc Loop processing part of the `parse/1'
 %%
@@ -150,25 +177,24 @@ parse_loop(State0, Mark, Tag, Input, Result0) ->
 
 %% @doc Update delimiter part of the `parse/1'
 %%
-%% `{{=NewStartDelimiter NewStopDelimiter=}}' coresspond to this. <br />
-%% NewDelimiterBin is refers to a binary up to `=' from `='. <br />
-%% (e.g. `{{=%% %%=}}' -> `=%% %%=')
+%% NewDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
 -spec parse_delimiter(state(), NewDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
 parse_delimiter(State0, NewDelimiterBin, NextBin, Result) ->
-    State =
-        try
-            [_BeforeTheEqual, Delimiters, _AfterTheEqual] = binary:split(NewDelimiterBin, <<"=">>, [global]),
-            [StartDelimiter | T] = binary:split(Delimiters, <<" ">>, [global]),
-            [StopDelimiter  | _] = lists:reverse(T),
-            State0#state{start = StartDelimiter, stop = StopDelimiter}
-        catch
-            error:{badmatch, _} -> error(?PARSE_ERROR)
-        end,
-    parse1(State, NextBin, Result).
+    case binary:match(NewDelimiterBin, <<"=">>) of
+        nomatch ->
+            case [X || X <- binary:split(NewDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
+                [Start, Stop] -> parse1(State0#state{start = Start, stop = Stop}, NextBin, Result);
+                _             -> error(?PARSE_ERROR)
+            end;
+        _ ->
+            error(?PARSE_ERROR)
+    end.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Unit Tests
 %%----------------------------------------------------------------------------------------------------------------------
+
+-ifdef(TEST).
 
 -define(NT_S(X, Y), ?_assertEqual(#?MODULE{data=X}, ?MODULE:new(Y))).
 %% new_test generater (success case)
@@ -213,19 +239,21 @@ new_test_() ->
             <<"a{{^t1}}b{{^t2}}c{{t3}}d{{/t2}}e{{/t1}}f">>)},
      {"{{^tag1}}{{^tag2}}{{/tag1}}{{tag2}}", ?NT_F(<<"{{^t1}}{{^t2}}{{/t1}}{{/t2}}">>)},
 
-     {"{{^ tag}}{{/ tag}}",     ?NT_S([<<>>, {'^', <<"tag">>, [<<>>]}, <<>>], <<"{{^ tag}}{{/ tag}}">>)},
-     {"{{ ^tag }}{{ / tag }}",  ?NT_S([<<>>, {'^', <<"tag">>, [<<>>]}, <<>>], <<"{{ ^tag }}{{ / tag }}">>)},
-     {"{{ ^ tag }}{{ /tag }}",  ?NT_S([<<>>, {'^', <<"tag">>, [<<>>]}, <<>>], <<"{{ ^ tag }}{{ /tag }}">>)},
-     {"{{ ^ ta g}}{{ / ta g}}", ?NT_S([<<>>, {'^', <<"tag">>, [<<>>]}, <<>>], <<"{{ ^ ta g}}{{ / ta g}}">>)},
+     {"{{^ tag}}{{/ tag}}",     ?NT_S([<<>>, {'^', <<"tag">>,  [<<>>]}, <<>>], <<"{{^ tag}}{{/ tag}}">>)},
+     {"{{ ^tag }}{{ / tag }}",  ?NT_S([<<>>, {'^', <<"tag">>,  [<<>>]}, <<>>], <<"{{ ^tag }}{{ / tag }}">>)},
+     {"{{ ^ tag }}{{ /tag }}",  ?NT_S([<<>>, {'^', <<"tag">>,  [<<>>]}, <<>>], <<"{{ ^ tag }}{{ /tag }}">>)},
+     {"{{ ^ ta g}}{{ / ta g}}", ?NT_S([<<>>, {'^', <<"ta g">>, [<<>>]}, <<>>], <<"{{ ^ ta g}}{{ / ta g}}">>)},
 
      {"{{=<< >>=}}{{n}}<<n>><<={{ }}=>>{{n}}<<n>>",
       ?NT_S([<<"a">>, <<"b{{n}}c">>, {n, <<"n">>}, <<"d">>, <<"e">>, {n, <<"m">>}, <<"f<<m>>g">>],
-            <<"a{{=<< >>}}b{{n}}c<<n>>d<<={{ }}=>>e{{m}}f<<m>>g">>)},
+            <<"a{{=<< >>=}}b{{n}}c<<n>>d<<={{ }}=>>e{{m}}f<<m>>g">>)},
      {"{{=<< >>=}}<<#tag>><<{n}>><</tag>>",
-      ?NT_S([{'#', <<"tag">>, [{'&', <<"n">>}]}], <<"{{=<< >>=}}<<#tag>><<{n}>><</tag>>">>)},
+      ?NT_S([<<>>, <<>>, {'#', <<"tag">>, [<<>>, {'&', <<"n">>}, <<>>]}, <<>>], <<"{{=<< >>=}}<<#tag>><<{n}>><</tag>>">>)},
 
      {"{{=<<  >>=}}<<n>>",      ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{=<<  >>=}}<<n>>">>)},
      {"{{ = << >> = }}<<n>>",   ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{ = << >> = }}<<n>>">>)},
      {"{{=<= =>=}}<=n=>",       ?NT_F(<<"{{=<= =>=}}<=n=>">>)},
      {"{{ = < < >> = }}< <n>>", ?NT_F(<<"{{ = < < >> = }}< <n>>">>)}
     ].
+
+-endif.
