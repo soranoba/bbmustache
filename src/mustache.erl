@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------------------------------------------------------
 
 -define(PARSE_ERROR, incorrect_format).
+-define(FILE_ERROR, file_not_found).
 -define(COND(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
 
@@ -50,7 +51,7 @@
           data :: [tag()]
         }).
 
--type template() :: #?MODULE{}.
+-opaque template() :: #?MODULE{}.
 -type data()     :: #{string() => data() | iodata() | fun((data(), function()) -> iodata())}.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -67,7 +68,7 @@ new(Bin) when is_binary(Bin) ->
 parse_file(Filename) ->
     case file:read_file(Filename) of
         {ok, Bin} -> new_impl(#state{dirname = filename:dirname(Filename)}, Bin);
-        _         -> error(file_not_found, [Filename])
+        _         -> error(?FILE_ERROR, [Filename])
     end.
 
 %% @doc
@@ -89,17 +90,17 @@ new_impl(State, Input) ->
 parse(State, Bin) ->
     case parse1(State, Bin, []) of
         {partial, _} -> error(?PARSE_ERROR);
-        Tags         -> lists:reverse(Tags)
+        {_, Tags}    -> lists:reverse(Tags)
     end.
 
 %% @doc Part of the `parse/1'
 %%
 %% ATTENTION: The result is a list that is inverted.
--spec parse1(state(), Input :: binary(), Result :: [tag()]) -> [tag()] | partial().
+-spec parse1(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | partial().
 parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
     case binary:split(Bin, Start) of
-        []                       -> Result;
-        [B1]                     -> [B1 | Result];
+        []                       -> {State, Result};
+        [B1]                     -> {State, [B1 | Result]};
         [B1, <<"{", B2/binary>>] -> parse2(State, binary:split(B2, <<"}", Stop/binary>>), [B1 | Result]);
         [B1, B2]                 -> parse3(State, binary:split(B2, Stop),                 [B1 | Result])
     end.
@@ -132,11 +133,54 @@ parse3(State, [B1, B2], Result) ->
             parse1(State, B2, Result);
         <<"/", Tag/binary>> ->
             {partial, {State, remove_space_from_edge(Tag), B2, Result}};
+        <<">", Tag/binary>> ->
+            parse_jump(State, remove_space_from_edge(Tag), B2, Result);
         Tag ->
             parse1(State, B2, [{n, remove_space_from_tail(Tag)} | Result])
     end;
 parse3(_, _, _) ->
     error(?PARSE_ERROR).
+
+%% @doc Loop processing part of the `parse/1'
+%%
+%% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
+-spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | partial().
+parse_loop(State0, Mark, Tag, Input, Result0) ->
+    case parse1(State0, Input, []) of
+        {partial, {State, Tag, Rest, Result1}} when is_list(Result1) ->
+            parse1(State, Rest, [{Mark, Tag, lists:reverse(Result1)} | Result0]);
+        _ ->
+            error(?PARSE_ERROR)
+    end.
+
+%% @doc Partial part of the `parse/1'
+-spec parse_jump(state(), Tag :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
+parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
+    Filename = filename:join(?COND(Dirname =:= <<>>, [Tag], [Dirname, Tag])),
+    case file:read_file(Filename) of
+        {ok, Bin} ->
+            case parse1(State0, Bin, Result0) of
+                {partial, _}    -> error(?PARSE_ERROR);
+                {State, Result} -> parse1(State, NextBin, Result)
+            end;
+        _ ->
+            error(?FILE_ERROR, [Filename])
+    end.
+
+%% @doc Update delimiter part of the `parse/1'
+%%
+%% NewDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
+-spec parse_delimiter(state(), NewDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
+parse_delimiter(State0, NewDelimiterBin, NextBin, Result) ->
+    case binary:match(NewDelimiterBin, <<"=">>) of
+        nomatch ->
+            case [X || X <- binary:split(NewDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
+                [Start, Stop] -> parse1(State0#state{start = Start, stop = Stop}, NextBin, Result);
+                _             -> error(?PARSE_ERROR)
+            end;
+        _ ->
+            error(?PARSE_ERROR)
+    end.
 
 %% @doc Remove the space from the edge.
 -spec remove_space_from_edge(binary()) -> binary().
@@ -162,33 +206,6 @@ remove_space_from_tail_impl([{X, Y} | T], Size) when Size =:= X + Y ->
     remove_space_from_tail_impl(T, X);
 remove_space_from_tail_impl(_, Size) ->
     Size.
-
-%% @doc Loop processing part of the `parse/1'
-%%
-%% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
--spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | partial().
-parse_loop(State0, Mark, Tag, Input, Result0) ->
-    case parse1(State0, Input, []) of
-        {partial, {State, Tag, Rest, Result1}} when is_list(Result1) ->
-            parse1(State, Rest, [{Mark, Tag, lists:reverse(Result1)} | Result0]);
-        _ ->
-            error(?PARSE_ERROR)
-    end.
-
-%% @doc Update delimiter part of the `parse/1'
-%%
-%% NewDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
--spec parse_delimiter(state(), NewDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
-parse_delimiter(State0, NewDelimiterBin, NextBin, Result) ->
-    case binary:match(NewDelimiterBin, <<"=">>) of
-        nomatch ->
-            case [X || X <- binary:split(NewDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
-                [Start, Stop] -> parse1(State0#state{start = Start, stop = Stop}, NextBin, Result);
-                _             -> error(?PARSE_ERROR)
-            end;
-        _ ->
-            error(?PARSE_ERROR)
-    end.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Unit Tests
