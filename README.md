@@ -41,11 +41,11 @@ A logic-less templates.
 
 ||[moyombo/mustache.erl](https://github.com/mojombo/mustache.erl)|[soranoba/mustache](https://github.com/soranoba/mustache)|
 |:--|:---|:---|
-|score (time) |1016414 |21855|
+|score (time) |1016414 |33001|
 
 - [Benchmark script](https://gist.github.com/soranoba/6c4bf489714618366a1c)
 
-In this case, it is 46 times faster than moyombo/mustache.erl
+In this case, it is 30 times faster than moyombo/mustache.erl
 
 ## Contribute
 Pull request is welcome =D

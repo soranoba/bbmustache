@@ -145,3 +145,13 @@ manual_test_() ->
                                                              }))
       end}
     ].
+
+render_test_() ->
+    [
+     {"integer, float, binary, string",
+      fun() ->
+              ?assertEqual(<<"1, 1.5, hoge, fugo">>,
+                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}">>,
+                                           #{"i" => 1, "f" => 1.5, "b" => <<"hoge">>, "s" => "fugo"}))
+      end}
+    ].
