@@ -8,12 +8,12 @@
 %% Unit Tests
 %%----------------------------------------------------------------------------------------------------------------------
 
--define(NT_S(X, Y), ?_assertMatch({_, X}, mustache:parse_string(Y))).
-%% parse_string_test generater (success case)
--define(NT_F(X),    ?_assertError(_,      mustache:parse_string(X))).
-%% parse_string_test generater (failure case)
+-define(NT_S(X, Y), ?_assertMatch({_, X}, mustache:parse_binary(Y))).
+%% parse_binary_test generater (success case)
+-define(NT_F(X),    ?_assertError(_,      mustache:parse_binary(X))).
+%% parse_binary_test generater (failure case)
 
-parse_string_test_() ->
+parse_binary_test_() ->
     [
      {"mustache:template/0 format check", ?NT_S([<<>>], <<>>)},
      {"{{tag}}",     ?NT_S([<<"a">>, {n, <<"t">>}, <<"b">>],   <<"a{{t}}b">>)},

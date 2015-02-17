@@ -3,15 +3,12 @@
 %% @doc Mustach template engine for Erlang/OTP.
 -module(mustache).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported API
 %%----------------------------------------------------------------------------------------------------------------------
 -export([
-         parse_string/1,
+         render/2,
+         parse_binary/1,
          parse_file/1,
          compile/2
         ]).
@@ -51,32 +48,36 @@
         }).
 
 -opaque template() :: #?MODULE{}.
+%% @see parse_binary/1
+%% @see parse_file/1
 -type data()       :: #{string() => data() | iodata() | fun((data(), function()) -> iodata())}.
+%% @see render/2
+%% @see compile/2
 -type partial()    :: {partial, {state(), EndTag :: binary(), LastTagSize :: non_neg_integer(), Rest :: binary(), [tag()]}}.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
-%% @doc
+%% @equiv compile(parse_binary(Bin), Map)
 -spec render(binary(), data()) -> binary().
 render(Bin, Map) ->
-    compile(parse_string(Bin), Map).
+    compile(parse_binary(Bin), Map).
 
-%% @doc
--spec parse_string(binary()) -> template().
-parse_string(Bin) when is_binary(Bin) ->
-    parse_string_impl(#state{}, Bin).
+%% @doc Create a {@link template/0} from a binary.
+-spec parse_binary(binary()) -> template().
+parse_binary(Bin) when is_binary(Bin) ->
+    parse_binary_impl(#state{}, Bin).
 
-%% @doc
+%% @doc Create a {@link template/0} from a file.
 -spec parse_file(file:filename()) -> template().
 parse_file(Filename) ->
     case file:read_file(Filename) of
-        {ok, Bin} -> parse_string_impl(#state{dirname = filename:dirname(Filename)}, Bin);
+        {ok, Bin} -> parse_binary_impl(#state{dirname = filename:dirname(Filename)}, Bin);
         _         -> error(?FILE_ERROR, [Filename])
     end.
 
-%% @doc
+%% @doc Embed the data in the template.
 -spec compile(template(), data()) -> binary().
 compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
     iolist_to_binary(lists:reverse(compile_impl(Tags, Map, []))).
@@ -85,7 +86,7 @@ compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
 %% Internal Function
 %%----------------------------------------------------------------------------------------------------------------------
 
-%% @see compile/2
+%% @doc {@link compile/2}
 %%
 %% ATTENTION: The result is a list that is inverted.
 -spec compile_impl(Template :: [tag()], data(), Result :: iodata()) -> iodata().
@@ -114,9 +115,9 @@ compile_impl([{'^', Key, Tags} | T], Map, Result) ->
 compile_impl([Bin | T], Map, Result) ->
     compile_impl(T, Map, [Bin | Result]).
 
-%% @see parse_string/1
--spec parse_string_impl(state(), Input :: binary()) -> template().
-parse_string_impl(State, Input) ->
+%% @see parse_binary/1
+-spec parse_binary_impl(state(), Input :: binary()) -> template().
+parse_binary_impl(State, Input) ->
     #?MODULE{data = parse(State, Input)}.
 
 %% @doc Analyze the syntax of the mustache.
@@ -208,12 +209,12 @@ parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
 
 %% @doc Update delimiter part of the `parse/1'
 %%
-%% Parse_StringDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
--spec parse_delimiter(state(), Parse_StringDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
-parse_delimiter(State0, Parse_StringDelimiterBin, NextBin, Result) ->
-    case binary:match(Parse_StringDelimiterBin, <<"=">>) of
+%% Parse_BinaryDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
+-spec parse_delimiter(state(), Parse_BinaryDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
+parse_delimiter(State0, Parse_BinaryDelimiterBin, NextBin, Result) ->
+    case binary:match(Parse_BinaryDelimiterBin, <<"=">>) of
         nomatch ->
-            case [X || X <- binary:split(Parse_StringDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
+            case [X || X <- binary:split(Parse_BinaryDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
                 [Start, Stop] -> parse1(State0#state{start = Start, stop = Stop}, NextBin, Result);
                 _             -> error(?PARSE_ERROR)
             end;
