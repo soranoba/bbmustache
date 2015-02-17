@@ -37,8 +37,15 @@ A logic-less templates.
 - Lambda expression is included wasted processing.
  - Because it is optimized to `parse_string/1` + `compile/2`.
 
-## Benchmark
-TODO.
+## Simple Benchmark
+
+||[moyombo/mustache.erl](https://github.com/mojombo/mustache.erl)|[soranoba/mustache](https://github.com/soranoba/mustache)|
+|:--|:---|:---|
+|score (time) |1016414 |21855|
+
+- [Benchmark script](https://gist.github.com/soranoba/6c4bf489714618366a1c)
+
+In this case, it is 46 times faster than moyombo/mustache.erl
 
 ## Contribute
 Pull request is welcome =D

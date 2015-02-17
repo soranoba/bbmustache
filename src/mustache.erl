@@ -93,9 +93,9 @@ compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
 compile_impl([], _, Result) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result) ->
-    compile_impl(T, Map, [escape(maps:get(binary_to_list(Key), Map, <<>>)) | Result]);
+    compile_impl(T, Map, [escape(to_binary(maps:get(binary_to_list(Key), Map, <<>>))) | Result]);
 compile_impl([{'&', Key} | T], Map, Result) ->
-    compile_impl(T, Map, [maps:get(binary_to_list(Key), Map, <<>>) | Result]);
+    compile_impl(T, Map, [to_binary(maps:get(binary_to_list(Key), Map, <<>>)) | Result]);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
     Value = maps:get(binary_to_list(Key), Map, undefined),
     if
@@ -246,6 +246,15 @@ remove_space_from_tail_impl([{X, Y} | T], Size) when Size =:= X + Y ->
     remove_space_from_tail_impl(T, X);
 remove_space_from_tail_impl(_, Size) ->
     Size.
+
+%% @doc Number to binary
+-spec to_binary(number() | binary() | string()) -> binary() | string().
+to_binary(Integer) when is_integer(Integer) ->
+    integer_to_binary(Integer);
+to_binary(Float) when is_float(Float) ->
+    float_to_binary(Float);
+to_binary(X) ->
+    X.
 
 %% @doc HTML Escape
 -spec escape(iodata()) -> binary().
