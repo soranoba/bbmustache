@@ -20,7 +20,7 @@ A logic-less templates.
 1> mustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
 <<"hoge">>
 
-2> Template1 = mustache:parse_string(<<"{{name}}">>).
+2> Template1 = mustache:parse_binary(<<"{{name}}">>).
 ...
 3> mustache:compile(Template1, #{"name" => "hoge"}).
 <<"hoge">>
