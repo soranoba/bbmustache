@@ -17,7 +17,8 @@
         ]).
 
 -export_type([
-              template/0
+              template/0,
+              data/0
              ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -91,20 +92,21 @@ compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
 compile_impl([], _, Result) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result) ->
-    compile_impl(T, Map, [escape(maps:get(Key, Map)) | Result]);
+    compile_impl(T, Map, [escape(maps:get(binary_to_list(Key), Map, <<>>)) | Result]);
 compile_impl([{'&', Key} | T], Map, Result) ->
-    compile_impl(T, Map, [maps:get(Key, Map) | Result]);
+    compile_impl(T, Map, [maps:get(binary_to_list(Key), Map, <<>>) | Result]);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
-    Value = maps:get(Key, Map, undefined),
+    Value = maps:get(binary_to_list(Key), Map, undefined),
     if
-        is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
-                                                                  Result, Value));
-        Value =:= false       -> compile_impl(T, Map, Result);
-        is_function(Value, 2) -> compile_impl(T, Map, Value(Source, fun(Text) -> render(Text, Map) end));
-        true                  -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
+        is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
+                                                                                 Result, Value));
+        Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result);
+        is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
+        is_map(Value)                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result));
+        true                                 -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
     end;
 compile_impl([{'^', Key, Tags} | T], Map, Result) ->
-    Value = maps:get(Key, Map, undefined),
+    Value = maps:get(binary_to_list(Key), Map, undefined),
     case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result));
         false -> compile_impl(T, Map, Result)
@@ -117,7 +119,7 @@ compile_impl([Bin | T], Map, Result) ->
 parse_string_impl(State, Input) ->
     #?MODULE{data = parse(State, Input)}.
 
-%% @doc
+%% @doc Analyze the syntax of the mustache.
 -spec parse(state(), binary()) -> [tag()].
 parse(State, Bin) ->
     case parse1(State, Bin, []) of
@@ -192,7 +194,8 @@ parse_loop(State0, Mark, Tag, Input, Result0) ->
 %% @doc Partial part of the `parse/1'
 -spec parse_jump(state(), Tag :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | partial().
 parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
-    Filename = filename:join(?COND(Dirname =:= <<>>, [Tag], [Dirname, Tag])),
+    Filename0 = <<Tag/binary, ".mustache">>,
+    Filename  = filename:join(?COND(Dirname =:= <<>>, [Filename0], [Dirname, Filename0])),
     case file:read_file(Filename) of
         {ok, Bin} ->
             case parse1(State0, Bin, Result0) of
@@ -257,73 +260,3 @@ escape_char($&) -> <<"&amp;">>;
 escape_char($") -> <<"&quot;">>;
 escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
-
-%%----------------------------------------------------------------------------------------------------------------------
-%% Unit Tests
-%%----------------------------------------------------------------------------------------------------------------------
-
--ifdef(TEST).
-
--define(NT_S(X, Y), ?_assertEqual(#?MODULE{data=X}, ?MODULE:parse_string(Y))).
-%% parse_string_test generater (success case)
--define(NT_F(X),    ?_assertError(_,                ?MODULE:parse_string(X))).
-%% parse_string_test generater (failure case)
-
-parse_string_test_() ->
-    [
-     {"{{tag}}",     ?NT_S([<<"a">>, {n, <<"t">>}, <<"b">>],   <<"a{{t}}b">>)},
-     {"{{ tag }}",   ?NT_S([<<>>, {n, <<"t">>}, <<>>],         <<"{{ t }}">>)},
-     {"{{ ta g }}",  ?NT_S([<<>>, {n, <<"ta g">>}, <<>>],      <<"{{ ta g }}">>)},
-
-     {"{{{tag}}}",   ?NT_S([<<"a">>, {'&', <<"t">>}, <<"b">>], <<"a{{{t}}}b">>)},
-     {"{{{ tag }}}", ?NT_S([<<>>, {'&', <<"t">>}, <<>>],       <<"{{{ t }}}">>)},
-     {"{{{ ta g }}}",?NT_S([<<>>, {'&', <<"ta g">>}, <<>>],    <<"{{{ ta g }}}">>)},
-
-     {"{{& tag}}",   ?NT_S([<<"a">>, {'&', <<"t">>}, <<"b">>], <<"a{{& t}}b">>)},
-     {"{{ & tag }}", ?NT_S([<<>>, {'&', <<"t">>}, <<>>],       <<"{{ & t }}">>)},
-     {"{{ & ta g }}",?NT_S([<<>>, {'&', <<"ta g">>}, <<>>],    <<"{{ & ta g }}">>)},
-     {"{{&ta g }}",  ?NT_S([<<>>, {'&', <<"ta g">>}, <<>>],    <<"{{&ta g}}">>)},
-     {"{{&tag}}",    ?NT_S([<<>>, {'&', <<"t">>}, <<>>],       <<"{{&t}}">>)},
-
-     {"{{#tag}}",    ?NT_F(<<"{{#tag}}">>)},
-     {"{{#tag1}}{{#tag2}}{{name}}{{/tag1}}{{/tag2}}",
-      ?NT_S([<<"a">>, {'#', <<"t1">>, [<<"b">>,
-                                       {'#', <<"t2">>, [<<"c">>, {n, <<"t3">>}, <<"d">>], <<"c{{t3}}d">>},
-                                       <<"e">>], <<"b{{#t2}}c{{t3}}d{{/t2}}e">>}, <<"f">>],
-            <<"a{{#t1}}b{{#t2}}c{{t3}}d{{/t2}}e{{/t1}}f">>)},
-     {"{{#tag1}}{{#tag2}}{{/tag1}}{{/tag2}}", ?NT_F(<<"{{#t1}}{{#t2}}{{/t1}}{{/t2}}">>)},
-
-     {"{{# tag}}{{/ tag}}",     ?NT_S([<<>>, {'#', <<"tag">>,  [<<>>], <<>>}, <<>>], <<"{{# tag}}{{/ tag}}">>)},
-     {"{{ #tag }}{{ / tag }}",  ?NT_S([<<>>, {'#', <<"tag">>,  [<<>>], <<>>}, <<>>], <<"{{ #tag }}{{ / tag }}">>)},
-     {"{{ # tag }}{{ /tag }}",  ?NT_S([<<>>, {'#', <<"tag">>,  [<<>>], <<>>}, <<>>], <<"{{ # tag }}{{ /tag }}">>)},
-     {"{{ # ta g}}{{ / ta g}}", ?NT_S([<<>>, {'#', <<"ta g">>, [<<>>], <<>>}, <<>>], <<"{{ # ta g}}{{ / ta g}}">>)},
-
-     {"{{!comment}}",           ?NT_S([<<"a">>, <<"c">>], <<"a{{!comment}}c">>)},
-     {"{{! comment }}",         ?NT_S([<<>>, <<>>],       <<"{{! comment }}">>)},
-     {"{{! co mmen t }}",       ?NT_S([<<>>, <<>>],       <<"{{! co mmen t }}">>)},
-     {"{{ !comment }}",         ?NT_S([<<>>, <<>>],       <<"{{ !comment }}">>)},
-
-     {"{{^tag}}",    ?NT_F(<<"a{{^tag}}b">>)},
-     {"{{^tag1}}{{^tag2}}{{name}}{{/tag2}}{{/tag1}}",
-      ?NT_S([<<"a">>, {'^', <<"t1">>, [<<"b">>, {'^', <<"t2">>, [<<"c">>, {n, <<"t3">>}, <<"d">>]}, <<"e">>]}, <<"f">>],
-            <<"a{{^t1}}b{{^t2}}c{{t3}}d{{/t2}}e{{/t1}}f">>)},
-     {"{{^tag1}}{{^tag2}}{{/tag1}}{{tag2}}", ?NT_F(<<"{{^t1}}{{^t2}}{{/t1}}{{/t2}}">>)},
-
-     {"{{^ tag}}{{/ tag}}",     ?NT_S([<<>>, {'^', <<"tag">>,  [<<>>]}, <<>>], <<"{{^ tag}}{{/ tag}}">>)},
-     {"{{ ^tag }}{{ / tag }}",  ?NT_S([<<>>, {'^', <<"tag">>,  [<<>>]}, <<>>], <<"{{ ^tag }}{{ / tag }}">>)},
-     {"{{ ^ tag }}{{ /tag }}",  ?NT_S([<<>>, {'^', <<"tag">>,  [<<>>]}, <<>>], <<"{{ ^ tag }}{{ /tag }}">>)},
-     {"{{ ^ ta g}}{{ / ta g}}", ?NT_S([<<>>, {'^', <<"ta g">>, [<<>>]}, <<>>], <<"{{ ^ ta g}}{{ / ta g}}">>)},
-
-     {"{{=<< >>=}}{{n}}<<n>><<={{ }}=>>{{n}}<<n>>",
-      ?NT_S([<<"a">>, <<"b{{n}}c">>, {n, <<"n">>}, <<"d">>, <<"e">>, {n, <<"m">>}, <<"f<<m>>g">>],
-            <<"a{{=<< >>=}}b{{n}}c<<n>>d<<={{ }}=>>e{{m}}f<<m>>g">>)},
-     {"{{=<< >>=}}<<#tag>><<{n}>><</tag>>",
-      ?NT_S([<<>>, <<>>, {'#', <<"tag">>, [<<>>, {'&', <<"n">>}, <<>>], <<"<<{n}>>">>}, <<>>], <<"{{=<< >>=}}<<#tag>><<{n}>><</tag>>">>)},
-
-     {"{{=<<  >>=}}<<n>>",      ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{=<<  >>=}}<<n>>">>)},
-     {"{{ = << >> = }}<<n>>",   ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{ = << >> = }}<<n>>">>)},
-     {"{{=<= =>=}}<=n=>",       ?NT_F(<<"{{=<= =>=}}<=n=>">>)},
-     {"{{ = < < >> = }}< <n>>", ?NT_F(<<"{{ = < < >> = }}< <n>>">>)}
-    ].
-
--endif.
