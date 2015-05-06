@@ -212,7 +212,7 @@ assoc_list_manual_test_() ->
       fun() ->
               Template   = mustache:parse_file(?PATH(<<"comment.mustache">>)),
               {ok, File} = file:read_file(?PATH(<<"comment.result">>)),
-              ?assertEqual(File, mustache:compile(Template, #{}))
+              ?assertEqual(File, mustache:compile(Template, []))
       end},
      {"Partials",
       fun() ->
