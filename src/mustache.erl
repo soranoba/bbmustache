@@ -50,9 +50,19 @@
 -opaque template() :: #?MODULE{}.
 %% @see parse_binary/1
 %% @see parse_file/1
--type data()       :: #{string() => data() | iodata() | fun((data(), function()) -> iodata())}.
+
+-type data_key()   :: string().
+-type data_value() :: data() | iodata() | fun((data(), function()) -> iodata()).
+-type assoc_data() :: [{data_key(), data_value()}].
+
+-ifdef(namespaced_types).
+-type data() :: #{data_key() => data_value()} | assoc_data().
+-else.
+-type data() :: assoc_data().
+-endif.
 %% @see render/2
 %% @see compile/2
+
 -type partial()    :: {partial, {state(), EndTag :: binary(), LastTagSize :: non_neg_integer(), Rest :: binary(), [tag()]}}.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -93,21 +103,22 @@ compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
 compile_impl([], _, Result) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result) ->
-    compile_impl(T, Map, [escape(to_binary(maps:get(binary_to_list(Key), Map, <<>>))) | Result]);
+    compile_impl(T, Map, [escape(to_binary(data_get(binary_to_list(Key), Map, <<>>))) | Result]);
 compile_impl([{'&', Key} | T], Map, Result) ->
-    compile_impl(T, Map, [to_binary(maps:get(binary_to_list(Key), Map, <<>>)) | Result]);
+    compile_impl(T, Map, [to_binary(data_get(binary_to_list(Key), Map, <<>>)) | Result]);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
-    Value = maps:get(binary_to_list(Key), Map, undefined),
-    if
-        is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
-                                                                                 Result, Value));
-        Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result);
-        is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
-        is_map(Value)                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result));
-        true                                 -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
+    case data_get(binary_to_list(Key), Map, undefined) of
+        [{_, _} | _] = Value             -> compile_impl(T, Map, compile_impl(Tags, Value, Result));
+        Value when is_map(Value)         -> compile_impl(T, Map, compile_impl(Tags, Value, Result));       
+        Value when is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
+                                                                             Result, Value));
+        false                            -> compile_impl(T, Map, Result);
+        undefined                        -> compile_impl(T, Map, Result);
+        Value when is_function(Value, 2) -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
+        _                                -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
     end;
 compile_impl([{'^', Key, Tags} | T], Map, Result) ->
-    Value = maps:get(binary_to_list(Key), Map, undefined),
+    Value = data_get(binary_to_list(Key), Map, undefined),
     case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result));
         false -> compile_impl(T, Map, Result)
@@ -270,3 +281,15 @@ escape_char($&) -> <<"&amp;">>;
 escape_char($") -> <<"&quot;">>;
 escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
+
+%% @doc fetch the value of the specified key from {@link data/0}
+-spec data_get(data_key(), data(), Default :: term()) -> term(). 
+-ifdef(namespaced_types).
+data_get(Key, Map, Default) when is_map(Map) ->
+    maps:get(Key, Map, Default);
+data_get(Key, AssocList, Default) ->
+    proplists:get_value(Key, AssocList, Default).
+-else.
+data_get(Key, AssocList, Default) ->
+    proplists:get_value(Key, AssocList, Default).
+-endif.
