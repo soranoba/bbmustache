@@ -284,15 +284,23 @@ escape_char($") -> <<"&quot;">>;
 escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
+data_get(Key, Data, Default) ->
+    case data_get_(Key, Data, Default) of
+        Default ->
+            data_get_(list_to_atom(Key), Data, Default);
+        Value ->
+            Value
+    end.
+
 %% @doc fetch the value of the specified key from {@link data/0}
--spec data_get(data_key(), data(), Default :: term()) -> term(). 
+-spec data_get_(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
-data_get(Key, Map, Default) when is_map(Map) ->
+data_get_(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
-data_get(Key, AssocList, Default) ->
+data_get_(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
-data_get(Key, AssocList, Default) ->
+data_get_(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
 
@@ -303,9 +311,9 @@ data_get(Key, AssocList, Default) ->
 -ifdef(namespaced_types).
 check_data_type([])           -> maybe;
 check_data_type([{_, _} | _]) -> true;
-check_data_type(Map)          -> is_map(Map). 
+check_data_type(Map)          -> is_map(Map).
 -else.
 check_data_type([])           -> maybe;
-check_data_type([{_, _} | _]) -> true; 
+check_data_type([{_, _} | _]) -> true;
 check_data_type(_)            -> false.
--endif. 
+-endif.
