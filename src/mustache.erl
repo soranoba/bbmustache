@@ -50,7 +50,11 @@
 -opaque template() :: #?MODULE{}.
 %% @see parse_binary/1
 %% @see parse_file/1
+-ifdef(namespaced_types).
 -type data()       :: #{string() => data() | iodata() | fun((data(), function()) -> iodata())}.
+-else.
+-type data()       :: dict().
+-endif.
 %% @see render/2
 %% @see compile/2
 -type partial()    :: {partial, {state(), EndTag :: binary(), LastTagSize :: non_neg_integer(), Rest :: binary(), [tag()]}}.
@@ -90,6 +94,8 @@ compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
 %%
 %% ATTENTION: The result is a list that is inverted.
 -spec compile_impl(Template :: [tag()], data(), Result :: iodata()) -> iodata().
+
+-ifdef(namespaced_types).
 compile_impl([], _, Result) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result) ->
@@ -114,6 +120,44 @@ compile_impl([{'^', Key, Tags} | T], Map, Result) ->
     end;
 compile_impl([Bin | T], Map, Result) ->
     compile_impl(T, Map, [Bin | Result]).
+-else.
+compile_impl([], _, Result) ->
+    Result;
+compile_impl([{n, Key} | T], Map, Result) ->
+    compile_impl(T, Map, [escape(to_binary(data_get(binary_to_list(Key), Map, <<>>))) | Result]);
+compile_impl([{'&', Key} | T], Map, Result) ->
+    compile_impl(T, Map, [to_binary(data_get(binary_to_list(Key), Map, <<>>)) | Result]);
+compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
+    case data_get(binary_to_list(Key), Map, undefined) of
+        false ->
+            compile_impl(T, Map, Result);
+        undefined ->
+            compile_impl(T, Map, Result);
+        Value when is_list(Value) ->
+            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
+                                             Result, Value));
+
+        Value when is_function(Value, 2) ->
+            compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
+        Value ->
+            case is_dict(Value) of
+                true ->
+                    compile_impl(T, Map, compile_impl(Tags, Value, Result));
+                fale ->
+                    compile_impl(T, Map, compile_impl(Tags, Map, Result))
+            end
+    end;
+compile_impl([{'^', Key, Tags} | T], Map, Result) ->
+    Value = data_get(binary_to_list(Key), Map, undefined),
+    case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
+        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result));
+        false -> compile_impl(T, Map, Result)
+    end;
+compile_impl([Bin | T], Map, Result) ->
+    compile_impl(T, Map, [Bin | Result]).
+-endif.
+
+
 
 %% @see parse_binary/1
 -spec parse_binary_impl(state(), Input :: binary()) -> template().
@@ -270,3 +314,21 @@ escape_char($&) -> <<"&amp;">>;
 escape_char($") -> <<"&quot;">>;
 escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
+
+-ifdef(namespaced_types).
+data_get(Key, Data, Default) ->
+    maps:get(Key, Data, Default).
+-else.
+data_get(Key, Data, Default) ->
+    case dict:find(Key, Dict) of
+        {ok, Value} ->
+            Value;
+        error ->
+            Default
+    end.
+
+is_dict(Data) when is_tuple(Data) ->
+    element(1, Data) =:= dict;
+is_dict(_) ->
+    false.
+-endif.
