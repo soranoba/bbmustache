@@ -74,6 +74,7 @@ parse_binary_test_() ->
 -define(PATH(File), <<"../test/test_data/", File/binary>>).
 %% TestData Path
 
+-ifdef(namespaced_types).
 manual_test_() ->
     [
      {"Variables",
@@ -95,10 +96,14 @@ manual_test_() ->
               Template   = mustache:parse_file(?PATH(<<"non-empty.mustache">>)),
               {ok, File} = file:read_file(?PATH(<<"non-empty.result">>)),
               ?assertEqual(File, mustache:compile(Template, #{ "repo" => [
-                                                                          #{ "name" => "resque" },
+                                                                          [{"name", "resque"}],
                                                                           #{ "name" => "hub" },
                                                                           #{ "name" => "rip" }
-                                                                         ]}))
+                                                                         ]})),
+              ?assertEqual(File, mustache:compile(Template, [{"repo", [ [{"name", "resque"}],
+                                                                        #{"name" => "hub"},
+                                                                        [{"name", "rip"}]
+                                                                      ]}]))
       end},
      {"Sections : Lamdas",
       fun() ->
@@ -153,5 +158,87 @@ render_test_() ->
               ?assertEqual(<<"1, 1.5, hoge, fugo">>,
                            mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}">>,
                                            #{"i" => 1, "f" => 1.5, "b" => <<"hoge">>, "s" => "fugo"}))
+      end}
+    ].
+-endif.
+
+assoc_list_manual_test_() ->
+    [
+     {"Variables",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"variables.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"variables.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"name", "Chris"}, {"company", "<b>GitHub</b>"}]))
+      end},
+     {"Sections : False Values or Empty Lists",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"false_values.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"false_values.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"person", false}])),
+              ?assertEqual(File, mustache:compile(Template, [{"person", []}])),
+              ?assertEqual(File, mustache:compile(Template, []))
+      end},
+     {"Sections : Non-Empty Lists",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"non-empty.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"non-empty.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"repo", [ [{"name", "resque"}],
+                                                                        [{"name", "hub"}],
+                                                                        [{"name", "rip"}]
+                                                                      ]}
+                                                            ]))
+      end},
+     {"Sections : Lamdas",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"lamdas.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"lamdas.result">>)),
+
+              F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
+              ?assertEqual(File, mustache:compile(Template, [{"name", "Willy"}, {"wrapped", F}]))
+      end},
+     {"Sections : Non-False Values",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"non-false.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"non-false.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"person?", [{"name", "Jon"}]}]))
+      end},
+     {"Inverted Sections",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"invarted.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"invarted.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"repo", []}]))
+      end},
+     {"Comments",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"comment.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"comment.result">>)),
+              ?assertEqual(File, mustache:compile(Template, []))
+      end},
+     {"Partials",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"partial.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"partial.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"names", [ [{"name", "alice"}],
+                                                                         [{"name", "bob"}]
+                                                                       ]}]))
+      end},
+     {"Set Delimiter",
+      fun() ->
+              Template   = mustache:parse_file(?PATH(<<"delimiter.mustache">>)),
+              {ok, File} = file:read_file(?PATH(<<"delimiter.result">>)),
+              ?assertEqual(File, mustache:compile(Template, [{"default_tags",   "tag1"},
+                                                             {"erb_style_tags", "tag2"},
+                                                             {"default_tags_again", "tag3"}
+                                                            ]))
+      end}
+    ].
+
+assoc_list_render_test_() ->
+    [
+     {"integer, float, binary, string",
+      fun() ->
+              ?assertEqual(<<"1, 1.5, hoge, fugo">>,
+                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}">>,
+                                           [{"i", 1}, {"f", 1.5}, {"b", <<"hoge">>}, {"s", "fugo"}]))
       end}
     ].
