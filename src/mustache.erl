@@ -69,10 +69,10 @@
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
-%% @equiv compile(parse_binary(Bin), Map)
+%% @equiv compile(parse_binary(Bin), Data)
 -spec render(binary(), data()) -> binary().
-render(Bin, Map) ->
-    compile(parse_binary(Bin), Map).
+render(Bin, Data) ->
+    compile(parse_binary(Bin), Data).
 
 %% @doc Create a {@link template/0} from a binary.
 -spec parse_binary(binary()) -> template().
@@ -89,8 +89,11 @@ parse_file(Filename) ->
 
 %% @doc Embed the data in the template.
 -spec compile(template(), data()) -> binary().
-compile(#?MODULE{data = Tags}, Map) when is_map(Map) ->
-    iolist_to_binary(lists:reverse(compile_impl(Tags, Map, []))).
+compile(#?MODULE{data = Tags} = T, Data) ->
+    case check_data_type(Data) of
+        false -> error(function_clause, [T, Data]);
+        _     -> iolist_to_binary(lists:reverse(compile_impl(Tags, Data, [])))
+    end.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Function
@@ -107,15 +110,14 @@ compile_impl([{n, Key} | T], Map, Result) ->
 compile_impl([{'&', Key} | T], Map, Result) ->
     compile_impl(T, Map, [to_binary(data_get(binary_to_list(Key), Map, <<>>)) | Result]);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
-    case data_get(binary_to_list(Key), Map, undefined) of
-        [{_, _} | _] = Value             -> compile_impl(T, Map, compile_impl(Tags, Value, Result));
-        Value when is_map(Value)         -> compile_impl(T, Map, compile_impl(Tags, Value, Result));       
-        Value when is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
-                                                                             Result, Value));
-        false                            -> compile_impl(T, Map, Result);
-        undefined                        -> compile_impl(T, Map, Result);
-        Value when is_function(Value, 2) -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
-        _                                -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
+    Value = data_get(binary_to_list(Key), Map, undefined),
+    case check_data_type(Value) of
+        true                                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result));
+        _ when is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
+                                                                                        Result, Value));
+        _ when Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result);
+        _ when is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
+        _                                           -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
     end;
 compile_impl([{'^', Key, Tags} | T], Map, Result) ->
     Value = data_get(binary_to_list(Key), Map, undefined),
@@ -293,3 +295,17 @@ data_get(Key, AssocList, Default) ->
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
+
+%% @doc check whether the type of {@link data/0}
+%%
+%% maybe: There is also the possibility of iolist
+-spec check_data_type(data() | term()) -> boolean() | maybe.
+-ifdef(namespaced_types).
+check_data_type([])           -> maybe;
+check_data_type([{_, _} | _]) -> true;
+check_data_type(Map)          -> is_map(Map). 
+-else.
+check_data_type([])           -> maybe;
+check_data_type([{_, _} | _]) -> true; 
+check_data_type(_)            -> false.
+-endif. 
