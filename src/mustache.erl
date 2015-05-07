@@ -51,7 +51,7 @@
 %% @see parse_binary/1
 %% @see parse_file/1
 
--type data_key()   :: string().
+-type data_key()   :: string() | atom().
 -type data_value() :: data() | iodata() | fun((data(), function()) -> iodata()).
 -type assoc_data() :: [{data_key(), data_value()}].
 
@@ -284,6 +284,8 @@ escape_char($") -> <<"&quot;">>;
 escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
+%% @doc fetch the value of the specified key from {@link data/0}
+-spec data_get_(data_key(), data(), Default :: term()) -> term().
 data_get(Key, Data, Default) ->
     case data_get_(Key, Data, Default) of
         Default ->
