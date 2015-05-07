@@ -8,9 +8,11 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -export([
          render/2,
+         render/3,
          parse_binary/1,
          parse_file/1,
-         compile/2
+         compile/2,
+         compile/3
         ]).
 
 -export_type([
@@ -51,9 +53,10 @@
 %% @see parse_binary/1
 %% @see parse_file/1
 
--type data_key()   :: string().
+-type data_key()   :: string() | atom().
 -type data_value() :: data() | iodata() | fun((data(), function()) -> iodata()).
 -type assoc_data() :: [{data_key(), data_value()}].
+-type options()    :: [{atom(), atom()}].
 
 -ifdef(namespaced_types).
 -type data() :: #{data_key() => data_value()} | assoc_data().
@@ -72,7 +75,12 @@
 %% @equiv compile(parse_binary(Bin), Data)
 -spec render(binary(), data()) -> binary().
 render(Bin, Data) ->
-    compile(parse_binary(Bin), Data).
+    compile(Bin, Data, []).
+
+%% @equiv compile(parse_binary(Bin), Data)
+-spec render(binary(), data(), options()) -> binary().
+render(Bin, Data, Options) ->
+    compile(parse_binary(Bin), Data, Options).
 
 %% @doc Create a {@link template/0} from a binary.
 -spec parse_binary(binary()) -> template().
@@ -89,10 +97,15 @@ parse_file(Filename) ->
 
 %% @doc Embed the data in the template.
 -spec compile(template(), data()) -> binary().
-compile(#?MODULE{data = Tags} = T, Data) ->
+compile(T, Data) ->
+    compile(T, Data, []).
+
+%% @doc Embed the data in the template.
+-spec compile(template(), data(), options()) -> binary().
+compile(#?MODULE{data = Tags} = T, Data, Options) ->
     case check_data_type(Data) of
         false -> error(function_clause, [T, Data]);
-        _     -> iolist_to_binary(lists:reverse(compile_impl(Tags, Data, [])))
+        _     -> iolist_to_binary(lists:reverse(compile_impl(Tags, Data, [], Options)))
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -102,31 +115,31 @@ compile(#?MODULE{data = Tags} = T, Data) ->
 %% @doc {@link compile/2}
 %%
 %% ATTENTION: The result is a list that is inverted.
--spec compile_impl(Template :: [tag()], data(), Result :: iodata()) -> iodata().
-compile_impl([], _, Result) ->
+-spec compile_impl(Template :: [tag()], data(), Result :: iodata(), Options :: options()) -> iodata().
+compile_impl([], _, Result, _) ->
     Result;
-compile_impl([{n, Key} | T], Map, Result) ->
-    compile_impl(T, Map, [escape(to_binary(data_get(binary_to_list(Key), Map, <<>>))) | Result]);
-compile_impl([{'&', Key} | T], Map, Result) ->
-    compile_impl(T, Map, [to_binary(data_get(binary_to_list(Key), Map, <<>>)) | Result]);
-compile_impl([{'#', Key, Tags, Source} | T], Map, Result) ->
-    Value = data_get(binary_to_list(Key), Map, undefined),
+compile_impl([{n, Key} | T], Map, Result, Options) ->
+    compile_impl(T, Map, [escape(to_binary(data_get(binary_to_list(Key), Map, <<>>, Options))) | Result], Options);
+compile_impl([{'&', Key} | T], Map, Result, Options) ->
+    compile_impl(T, Map, [to_binary(data_get(binary_to_list(Key), Map, <<>>, Options)) | Result], Options);
+compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
+    Value = data_get(binary_to_list(Key), Map, undefined, Options),
     case check_data_type(Value) of
-        true                                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result));
-        _ when is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc) end,
-                                                                                        Result, Value));
-        _ when Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result);
-        _ when is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result]);
-        _                                           -> compile_impl(T, Map, compile_impl(Tags, Map, Result))
+        true                                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result, Options), Options);
+        _ when is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, Options) end,
+                                                                                        Result, Value), Options);
+        _ when Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result, Options);
+        _ when is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result], Options);
+        _                                           -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options)
     end;
-compile_impl([{'^', Key, Tags} | T], Map, Result) ->
-    Value = data_get(binary_to_list(Key), Map, undefined),
+compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
+    Value = data_get(binary_to_list(Key), Map, undefined, Options),
     case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
-        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result));
-        false -> compile_impl(T, Map, Result)
+        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
+        false -> compile_impl(T, Map, Result, Options)
     end;
-compile_impl([Bin | T], Map, Result) ->
-    compile_impl(T, Map, [Bin | Result]).
+compile_impl([Bin | T], Map, Result, Options) ->
+    compile_impl(T, Map, [Bin | Result], Options).
 
 %% @see parse_binary/1
 -spec parse_binary_impl(state(), Input :: binary()) -> template().
@@ -263,7 +276,7 @@ remove_space_from_tail_impl(_, Size) ->
 %% @doc Number to binary
 -spec to_binary(number() | binary() | string()) -> binary() | string().
 to_binary(Integer) when is_integer(Integer) ->
-    integer_to_binary(Integer);
+    list_to_binary(integer_to_list(Integer));
 to_binary(Float) when is_float(Float) ->
     io_lib:format("~p", [Float]);
 to_binary(X) ->
@@ -285,14 +298,24 @@ escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc fetch the value of the specified key from {@link data/0}
--spec data_get(data_key(), data(), Default :: term()) -> term(). 
+-spec data_get(data_key(), data(), Default :: term(), Options :: options()) -> term().
+data_get(Key, Data, Default, Options) ->
+    case proplists:get_value(key_type, Options, string) of
+        atom ->
+            data_get_(list_to_atom(Key), Data, Default);
+        string ->
+            data_get_(Key, Data, Default)
+    end.
+
+%% @doc fetch the value of the specified key from {@link data/0}
+-spec data_get_(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
-data_get(Key, Map, Default) when is_map(Map) ->
+data_get_(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
-data_get(Key, AssocList, Default) ->
+data_get_(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
-data_get(Key, AssocList, Default) ->
+data_get_(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
 
@@ -303,9 +326,9 @@ data_get(Key, AssocList, Default) ->
 -ifdef(namespaced_types).
 check_data_type([])           -> maybe;
 check_data_type([{_, _} | _]) -> true;
-check_data_type(Map)          -> is_map(Map). 
+check_data_type(Map)          -> is_map(Map).
 -else.
 check_data_type([])           -> maybe;
-check_data_type([{_, _} | _]) -> true; 
+check_data_type([{_, _} | _]) -> true;
 check_data_type(_)            -> false.
--endif. 
+-endif.
