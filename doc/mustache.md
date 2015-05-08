@@ -52,6 +52,9 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 
 
 
+  Function is intended to support a lambda expression.<br />
+"false" in the atom does not output as string, because it is treated as boolean.
+
 
 
 ### <a name="type-option">option()</a> ###
@@ -65,18 +68,6 @@ option() = {key_type, atom | binary | string}
 
 
   - key_type: Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
-
-
-
-### <a name="type-options">options()</a> ###
-
-
-
-<pre><code>
-options() = [<a href="#type-option">option()</a>]
-</code></pre>
-
-
 
 
 
@@ -114,11 +105,23 @@ Equivalent to [`compile(Template, Data, [])`](#compile-3).
 
 
 <pre><code>
-compile(Mustache::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>, Options::<a href="#type-options">options()</a>) -&gt; binary()
+compile(Mustache::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>, Options::[<a href="#type-option">option()</a>]) -&gt; binary()
 </code></pre>
 <br />
 
+
 Embed the data in the template.
+
+
+
+```
+  1> Template = mustache:parse_binary(<<"{{name}}">>).
+  2> mustache:compile(Template, #{"name" => "Alice"}).
+  <<"Alice">>
+```
+
+Data support assoc list or maps (OTP17 or later). <br />
+All key in assoc list or maps must be same type.
 <a name="parse_binary-1"></a>
 
 ### parse_binary/1 ###
@@ -160,7 +163,7 @@ __See also:__ [compile/2](#compile-2), [parse_binary/1](#parse_binary-1), [parse
 
 
 <pre><code>
-render(Bin::binary(), Data::<a href="#type-data">data()</a>, Options::<a href="#type-options">options()</a>) -&gt; binary()
+render(Bin::binary(), Data::<a href="#type-data">data()</a>, Options::[<a href="#type-option">option()</a>]) -&gt; binary()
 </code></pre>
 <br />
 

@@ -18,15 +18,15 @@
 -export_type([
               template/0,
               data/0,
-              options/0
+              option/0
              ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Defines & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
 
--define(PARSE_ERROR,        incorrect_format).
--define(FILE_ERROR,         file_not_found).
+-define(PARSE_ERROR, incorrect_format).
+-define(FILE_ERROR,  file_not_found).
 -define(COND(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
 
@@ -37,14 +37,6 @@
                 {'^', key(), [tag()]}                     |
                 binary().
 
--record(state,
-        {
-          dirname = <<>>     :: file:filename_all(),
-          start   = <<"{{">> :: binary(),
-          stop    = <<"}}">> :: binary()
-        }).
--type state() :: #state{}.
-
 -record(?MODULE,
         {
           data :: [tag()]
@@ -54,13 +46,25 @@
 %% @see parse_binary/1
 %% @see parse_file/1
 
+-record(state,
+        {
+          dirname = <<>>     :: file:filename_all(),
+          start   = <<"{{">> :: binary(),
+          stop    = <<"}}">> :: binary()
+        }).
+-type state() :: #state{}.
+
 -type data_key()   :: atom() | binary() | string().
+%% You can choose one from these as the type of key in {@link data/0}.
+
 -type data_value() :: data() | iodata() | number() | atom() | fun((data(), function()) -> iodata()).
+%% Function is intended to support a lambda expression.<br />
+%% "false" in the atom does not output as string, because it is treated as boolean.
+
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
 -type option()     :: {key_type, atom | binary | string}.
 %% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
--type options()    :: [option()].
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
@@ -84,7 +88,7 @@ render(Bin, Data) ->
     render(Bin, Data, []).
 
 %% @equiv compile(parse_binary(Bin), Data, Options)
--spec render(binary(), data(), options()) -> binary().
+-spec render(binary(), data(), [option()]) -> binary().
 render(Bin, Data, Options) ->
     compile(parse_binary(Bin), Data, Options).
 
@@ -107,7 +111,15 @@ compile(Template, Data) ->
     compile(Template, Data, []).
 
 %% @doc Embed the data in the template.
--spec compile(template(), data(), options()) -> binary().
+%%
+%% ```
+%% 1> Template = mustache:parse_binary(<<"{{name}}">>).
+%% 2> mustache:compile(Template, #{"name" => "Alice"}).
+%% <<"Alice">>
+%% '''
+%% Data support assoc list or maps (OTP17 or later). <br />
+%% All key in assoc list or maps must be same type.
+-spec compile(template(), data(), [option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
     case check_data_type(Data) of
         false -> error(function_clause, [T, Data]);
@@ -121,7 +133,7 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 %% @doc {@link compile/2}
 %%
 %% ATTENTION: The result is a list that is inverted.
--spec compile_impl(Template :: [tag()], data(), Result :: iodata(), Options :: options()) -> iodata().
+-spec compile_impl(Template :: [tag()], data(), Result :: iodata(), Options :: [option()]) -> iodata().
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result, Options) ->
@@ -129,18 +141,18 @@ compile_impl([{n, Key} | T], Map, Result, Options) ->
 compile_impl([{'&', Key} | T], Map, Result, Options) ->
     compile_impl(T, Map, [to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>)) | Result], Options);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
-    Value = data_get(convert_keytype(Key, Options), Map, undefined),
+    Value = data_get(convert_keytype(Key, Options), Map, false),
     case check_data_type(Value) of
-        true                                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result, Options), Options);
-        _ when is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, Options) end,
-                                                                                        Result, Value), Options);
-        _ when Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result, Options);
-        _ when is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map, Options) end) | Result], Options);
-        _                                           -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options)
+        true                         -> compile_impl(T, Map, compile_impl(Tags, Value, Result, Options), Options);
+        _ when is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, Options) end,
+                                                                         Result, Value), Options);
+        _ when Value =:= false       -> compile_impl(T, Map, Result, Options);
+        _ when is_function(Value, 2) -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map, Options) end) | Result], Options);
+        _                            -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options)
     end;
 compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
-    Value = data_get(convert_keytype(Key, Options), Map, undefined),
-    case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
+    Value = data_get(convert_keytype(Key, Options), Map, false),
+    case Value =:= [] orelse Value =:= false of
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
         false -> compile_impl(T, Map, Result, Options)
     end;
@@ -280,7 +292,7 @@ remove_space_from_tail_impl(_, Size) ->
     Size.
 
 %% @doc term to iodata
--spec to_iodata(number() | binary() | string() | atom()) -> binary() | string().
+-spec to_iodata(number() | binary() | string() | atom()) -> iodata().
 to_iodata(Integer) when is_integer(Integer) ->
     list_to_binary(integer_to_list(Integer));
 to_iodata(Float) when is_float(Float) ->
@@ -306,7 +318,7 @@ escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc convert to {@link data_key/0} from binary.
--spec convert_keytype(binary(), options()) -> data_key().
+-spec convert_keytype(binary(), [option()]) -> data_key().
 convert_keytype(KeyBin, Options) ->
     case proplists:get_value(key_type, Options, string) of
         atom ->
