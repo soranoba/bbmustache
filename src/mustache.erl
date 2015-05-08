@@ -51,7 +51,7 @@
 %% @see parse_binary/1
 %% @see parse_file/1
 
--type data_key()   :: string().
+-type data_key()   :: string() | atom().
 -type data_value() :: data() | iodata() | fun((data(), function()) -> iodata()).
 -type assoc_data() :: [{data_key(), data_value()}].
 
@@ -263,7 +263,7 @@ remove_space_from_tail_impl(_, Size) ->
 %% @doc Number to binary
 -spec to_binary(number() | binary() | string()) -> binary() | string().
 to_binary(Integer) when is_integer(Integer) ->
-    integer_to_binary(Integer);
+    list_to_binary(integer_to_list(Integer));
 to_binary(Float) when is_float(Float) ->
     io_lib:format("~p", [Float]);
 to_binary(X) ->
@@ -285,14 +285,24 @@ escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc fetch the value of the specified key from {@link data/0}
--spec data_get(data_key(), data(), Default :: term()) -> term(). 
+-spec data_get(data_key(), data(), Default :: term()) -> term().
+data_get(Key, Data, Default) ->
+    case data_get_(Key, Data, Default) of
+        Default ->
+            data_get_(list_to_atom(Key), Data, Default);
+        Value ->
+            Value
+    end.
+
+%% @doc fetch the value of the specified key from {@link data/0}
+-spec data_get_(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
-data_get(Key, Map, Default) when is_map(Map) ->
+data_get_(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
-data_get(Key, AssocList, Default) ->
+data_get_(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
-data_get(Key, AssocList, Default) ->
+data_get_(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
 
@@ -303,9 +313,9 @@ data_get(Key, AssocList, Default) ->
 -ifdef(namespaced_types).
 check_data_type([])           -> maybe;
 check_data_type([{_, _} | _]) -> true;
-check_data_type(Map)          -> is_map(Map). 
+check_data_type(Map)          -> is_map(Map).
 -else.
 check_data_type([])           -> maybe;
-check_data_type([{_, _} | _]) -> true; 
+check_data_type([{_, _} | _]) -> true;
 check_data_type(_)            -> false.
--endif. 
+-endif.
