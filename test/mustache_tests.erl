@@ -246,7 +246,18 @@ assoc_list_render_test_() ->
 atom_and_binary_key_test_() ->
     [
      {"atom key",
-      ?_assertEqual(<<"atom">>, mustache:render(<<"{{atom}}">>, [{atom, "atom"}], [{key_type, atom}]))},
+      fun() ->
+              F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
+              ?assertEqual(<<"<b>Willy is awesome.</b>">>,
+                           mustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy_atom}}{{/wrapped}}">>,
+                                           [{name, "Willy"}, {wrapped, F}], [{key_type, atom}])),
+              ?assertError(_, binary_to_existing_atom(<<"dummy_atom">>, utf8))
+      end},
      {"binary key",
-      ?_assertEqual(<<"binary">>, mustache:render(<<"{{binary}}">>, [{<<"binary">>, "binary"}], [{key_type, binary}]))}
+      fun() ->
+              F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
+              ?assertEqual(<<"<b>Willy is awesome.</b>">>,
+                           mustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
+                                           [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
+      end}
     ].

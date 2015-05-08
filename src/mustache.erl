@@ -309,7 +309,12 @@ escape_char(C)  -> <<C:8>>.
 -spec convert_keytype(binary(), options()) -> data_key().
 convert_keytype(KeyBin, Options) ->
     case proplists:get_value(key_type, Options, string) of
-        atom   -> list_to_atom(binary_to_list(KeyBin));
+        atom ->
+            try binary_to_existing_atom(KeyBin, utf8) of
+                Atom -> Atom
+            catch
+                _:_ -> <<>> % It is not always present in data/0
+            end;
         string -> binary_to_list(KeyBin);
         binary -> KeyBin
     end.
