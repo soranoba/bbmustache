@@ -285,7 +285,7 @@ escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc fetch the value of the specified key from {@link data/0}
--spec data_get_(data_key(), data(), Default :: term()) -> term().
+-spec data_get(data_key(), data(), Default :: term()) -> term().
 data_get(Key, Data, Default) ->
     case data_get_(Key, Data, Default) of
         Default ->
