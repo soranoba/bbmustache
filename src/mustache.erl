@@ -269,12 +269,12 @@ to_binary(Float) when is_float(Float) ->
 to_binary(Atom) when is_atom(Atom) ->
     list_to_binary(atom_to_list(Atom));
 to_binary(X) ->
-    iolist_to_binary(X).
+    X.
 
 %% @doc HTML Escape
--spec escape(iodata() | atom()) -> binary().
+-spec escape(iodata()) -> binary().
 escape(IoData) ->
-    Bin = to_binary(IoData),
+    Bin = iolist_to_binary(IoData),
     << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
 
 %% @see escape/1
