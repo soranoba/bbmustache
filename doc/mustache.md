@@ -23,7 +23,7 @@ Copyright (c) 2015 Hinagiku Soranoba All Rights Reserved.
 
 
 <pre><code>
-assoc_data() = [{<a href="#type-data_key">data_key()</a>, <a href="#type-data_value">data_value()</a>}]
+assoc_data() = [{atom(), <a href="#type-data_value">data_value()</a>}] | [{binary(), <a href="#type-data_value">data_value()</a>}] | [{string(), <a href="#type-data_value">data_value()</a>}]
 </code></pre>
 
 
@@ -42,24 +42,38 @@ data() = <a href="#type-assoc_data">assoc_data()</a>
 
 
 
-### <a name="type-data_key">data_key()</a> ###
+### <a name="type-data_value">data_value()</a> ###
 
 
 
 <pre><code>
-data_key() = string()
+data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | fun((<a href="#type-data">data()</a>, function()) -&gt; iodata())
 </code></pre>
 
 
 
 
 
-### <a name="type-data_value">data_value()</a> ###
+### <a name="type-option">option()</a> ###
 
 
 
 <pre><code>
-data_value() = <a href="#type-data">data()</a> | iodata() | fun((<a href="#type-data">data()</a>, function()) -&gt; iodata())
+option() = {key_type, atom | binary | string}
+</code></pre>
+
+
+
+  - key_type: Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
+
+
+
+### <a name="type-options">options()</a> ###
+
+
+
+<pre><code>
+options() = [<a href="#type-option">option()</a>]
 </code></pre>
 
 
@@ -76,7 +90,7 @@ __abstract datatype__: `template()`
 ## Function Index ##
 
 
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Embed the data in the template.</td></tr><tr><td valign="top"><a href="#parse_binary-1">parse_binary/1</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a binary.</td></tr><tr><td valign="top"><a href="#parse_file-1">parse_file/1</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a file.</td></tr><tr><td valign="top"><a href="#render-2">render/2</a></td><td>Equivalent to <a href="#compile-2"><tt>compile(parse_binary(Bin), Data)</tt></a>.</td></tr></table>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Equivalent to <a href="#compile-3"><tt>compile(Template, Data, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#compile-3">compile/3</a></td><td>Embed the data in the template.</td></tr><tr><td valign="top"><a href="#parse_binary-1">parse_binary/1</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a binary.</td></tr><tr><td valign="top"><a href="#parse_file-1">parse_file/1</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a file.</td></tr><tr><td valign="top"><a href="#render-2">render/2</a></td><td>Equivalent to <a href="#render-3"><tt>render(Bin, Data, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#render-3">render/3</a></td><td>Equivalent to <a href="#compile-3"><tt>compile(parse_binary(Bin), Data, Options)</tt></a>.</td></tr></table>
 
 
 <a name="functions"></a>
@@ -89,7 +103,18 @@ __abstract datatype__: `template()`
 
 
 <pre><code>
-compile(Mustache::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>) -&gt; binary()
+compile(Template::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>) -&gt; binary()
+</code></pre>
+<br />
+
+Equivalent to [`compile(Template, Data, [])`](#compile-3).
+<a name="compile-3"></a>
+
+### compile/3 ###
+
+
+<pre><code>
+compile(Mustache::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>, Options::<a href="#type-options">options()</a>) -&gt; binary()
 </code></pre>
 <br />
 
@@ -111,7 +136,7 @@ Create a [`template/0`](#template-0) from a binary.
 
 
 <pre><code>
-parse_file(Filename::<a href="file.md#type-filename">file:filename()</a>) -&gt; <a href="#type-template">template()</a>
+parse_file(Filename::<a href="file.md#type-filename_all">file:filename_all()</a>) -&gt; <a href="#type-template">template()</a>
 </code></pre>
 <br />
 
@@ -126,6 +151,17 @@ render(Bin::binary(), Data::<a href="#type-data">data()</a>) -&gt; binary()
 </code></pre>
 <br />
 
-Equivalent to [`compile(parse_binary(Bin), Data)`](#compile-2).
+Equivalent to [`render(Bin, Data, [])`](#render-3).
 
 __See also:__ [compile/2](#compile-2), [parse_binary/1](#parse_binary-1), [parse_file/1](#parse_file-1), [render/2](#render-2).
+<a name="render-3"></a>
+
+### render/3 ###
+
+
+<pre><code>
+render(Bin::binary(), Data::<a href="#type-data">data()</a>, Options::<a href="#type-options">options()</a>) -&gt; binary()
+</code></pre>
+<br />
+
+Equivalent to [`compile(parse_binary(Bin), Data, Options)`](#compile-3).
