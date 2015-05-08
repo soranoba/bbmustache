@@ -65,6 +65,9 @@ Associative array
 <<"hoge">>
 ```
 
+### More information
+You want more information, see the [doc](doc).
+
 ## Attention
 - The number of new line.
  - New line in the template has left all.

@@ -125,9 +125,9 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [escape(to_binary(data_get(convert_keytype(Key, Options), Map, <<>>))) | Result], Options);
+    compile_impl(T, Map, [escape(to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>))) | Result], Options);
 compile_impl([{'&', Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [to_binary(data_get(convert_keytype(Key, Options), Map, <<>>)) | Result], Options);
+    compile_impl(T, Map, [to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>)) | Result], Options);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
     Value = data_get(convert_keytype(Key, Options), Map, undefined),
     case check_data_type(Value) of
@@ -279,15 +279,15 @@ remove_space_from_tail_impl([{X, Y} | T], Size) when Size =:= X + Y ->
 remove_space_from_tail_impl(_, Size) ->
     Size.
 
-%% @doc Number to binary
--spec to_binary(number() | binary() | string() | atom()) -> binary() | string().
-to_binary(Integer) when is_integer(Integer) ->
+%% @doc term to iodata
+-spec to_iodata(number() | binary() | string() | atom()) -> binary() | string().
+to_iodata(Integer) when is_integer(Integer) ->
     list_to_binary(integer_to_list(Integer));
-to_binary(Float) when is_float(Float) ->
+to_iodata(Float) when is_float(Float) ->
     io_lib:format("~p", [Float]);
-to_binary(Atom) when is_atom(Atom) ->
+to_iodata(Atom) when is_atom(Atom) ->
     list_to_binary(atom_to_list(Atom));
-to_binary(X) ->
+to_iodata(X) ->
     X.
 
 %% @doc HTML Escape
