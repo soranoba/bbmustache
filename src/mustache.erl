@@ -94,7 +94,7 @@ parse_binary(Bin) when is_binary(Bin) ->
     parse_binary_impl(#state{}, Bin).
 
 %% @doc Create a {@link template/0} from a file.
--spec parse_file(file:filename()) -> template().
+-spec parse_file(file:filename_all()) -> template().
 parse_file(Filename) ->
     case file:read_file(Filename) of
         {ok, Bin} -> parse_binary_impl(#state{dirname = filename:dirname(Filename)}, Bin);

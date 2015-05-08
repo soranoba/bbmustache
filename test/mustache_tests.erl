@@ -155,9 +155,9 @@ render_test_() ->
     [
      {"integer, float, binary, string",
       fun() ->
-              ?assertEqual(<<"1, 1.5, hoge, fugo">>,
-                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}">>,
-                                           #{"i" => 1, "f" => 1.5, "b" => <<"hoge">>, "s" => "fugo"}))
+              ?assertEqual(<<"1, 1.5, hoge, fugo, atom">>,
+                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}, {{a}}">>,
+                                           #{"i" => 1, "f" => 1.5, "b" => <<"hoge">>, "s" => "fugo", "a" => atom}))
       end}
     ].
 -endif.
@@ -237,8 +237,16 @@ assoc_list_render_test_() ->
     [
      {"integer, float, binary, string",
       fun() ->
-              ?assertEqual(<<"1, 1.5, hoge, fugo">>,
-                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}">>,
-                                           [{"i", 1}, {"f", 1.5}, {"b", <<"hoge">>}, {"s", "fugo"}]))
+              ?assertEqual(<<"1, 1.5, hoge, fugo, atom">>,
+                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}, {{a}}">>,
+                                           [{"i", 1}, {"f", 1.5}, {"b", <<"hoge">>}, {"s", "fugo"}, {"a", atom}]))
       end}
+    ].
+
+atom_and_binary_key_test_() ->
+    [
+     {"atom key",
+      ?_assertEqual(<<"atom">>, mustache:render(<<"{{atom}}">>, [{atom, "atom"}], [{key_type, atom}]))},
+     {"binary key",
+      ?_assertEqual(<<"binary">>, mustache:render(<<"{{binary}}">>, [{<<"binary">>, "binary"}], [{key_type, binary}]))}
     ].
