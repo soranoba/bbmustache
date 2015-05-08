@@ -261,18 +261,20 @@ remove_space_from_tail_impl(_, Size) ->
     Size.
 
 %% @doc Number to binary
--spec to_binary(number() | binary() | string()) -> binary() | string().
+-spec to_binary(number() | binary() | string() | atom()) -> binary() | string().
 to_binary(Integer) when is_integer(Integer) ->
     list_to_binary(integer_to_list(Integer));
 to_binary(Float) when is_float(Float) ->
     io_lib:format("~p", [Float]);
+to_binary(Atom) when is_atom(Atom) ->
+    list_to_binary(atom_to_list(Atom));
 to_binary(X) ->
-    X.
+    iolist_to_binary(X).
 
 %% @doc HTML Escape
--spec escape(iodata()) -> binary().
+-spec escape(iodata() | atom()) -> binary().
 escape(IoData) ->
-    Bin = iolist_to_binary(IoData),
+    Bin = to_binary(IoData),
     << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
 
 %% @see escape/1
