@@ -17,7 +17,8 @@
 
 -export_type([
               template/0,
-              data/0
+              data/0,
+              options/0
              ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -53,16 +54,21 @@
 %% @see parse_binary/1
 %% @see parse_file/1
 
--type data_key()   :: string() | atom().
--type data_value() :: data() | iodata() | fun((data(), function()) -> iodata()).
--type assoc_data() :: [{data_key(), data_value()}].
--type options()    :: [{atom(), atom()}].
+-type data_key()   :: atom() | binary() | string().
+-type data_value() :: data() | iodata() | number() | atom() | fun((data(), function()) -> iodata()).
+-type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
+
+-type option()     :: {key_type, atom | binary | string}.
+%% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
+-type options()    :: [option()].
 
 -ifdef(namespaced_types).
--type data() :: #{data_key() => data_value()} | assoc_data().
+-type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
+-type data()      :: maps_data() | assoc_data().
 -else.
--type data() :: assoc_data().
+-type data()      :: assoc_data().
 -endif.
+%% All key in assoc list or maps must be same type.
 %% @see render/2
 %% @see compile/2
 
@@ -72,12 +78,12 @@
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
-%% @equiv compile(parse_binary(Bin), Data)
+%% @equiv render(Bin, Data, [])
 -spec render(binary(), data()) -> binary().
 render(Bin, Data) ->
-    compile(Bin, Data, []).
+    render(Bin, Data, []).
 
-%% @equiv compile(parse_binary(Bin), Data)
+%% @equiv compile(parse_binary(Bin), Data, Options)
 -spec render(binary(), data(), options()) -> binary().
 render(Bin, Data, Options) ->
     compile(parse_binary(Bin), Data, Options).
@@ -95,10 +101,10 @@ parse_file(Filename) ->
         _         -> error(?FILE_ERROR, [Filename])
     end.
 
-%% @doc Embed the data in the template.
+%% @equiv compile(Template, Data, [])
 -spec compile(template(), data()) -> binary().
-compile(T, Data) ->
-    compile(T, Data, []).
+compile(Template, Data) ->
+    compile(Template, Data, []).
 
 %% @doc Embed the data in the template.
 -spec compile(template(), data(), options()) -> binary().
@@ -119,21 +125,21 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [escape(to_binary(data_get(binary_to_list(Key), Map, <<>>, Options))) | Result], Options);
+    compile_impl(T, Map, [escape(to_binary(data_get(convert_keytype(Key, Options), Map, <<>>))) | Result], Options);
 compile_impl([{'&', Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [to_binary(data_get(binary_to_list(Key), Map, <<>>, Options)) | Result], Options);
+    compile_impl(T, Map, [to_binary(data_get(convert_keytype(Key, Options), Map, <<>>)) | Result], Options);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
-    Value = data_get(binary_to_list(Key), Map, undefined, Options),
+    Value = data_get(convert_keytype(Key, Options), Map, undefined),
     case check_data_type(Value) of
         true                                        -> compile_impl(T, Map, compile_impl(Tags, Value, Result, Options), Options);
         _ when is_list(Value)                       -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, Options) end,
                                                                                         Result, Value), Options);
         _ when Value =:= false; Value =:= undefined -> compile_impl(T, Map, Result, Options);
-        _ when is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map) end) | Result], Options);
+        _ when is_function(Value, 2)                -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map, Options) end) | Result], Options);
         _                                           -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options)
     end;
 compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
-    Value = data_get(binary_to_list(Key), Map, undefined, Options),
+    Value = data_get(convert_keytype(Key, Options), Map, undefined),
     case Value =:= undefined orelse Value =:= [] orelse Value =:= false of
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
         false -> compile_impl(T, Map, Result, Options)
@@ -299,25 +305,24 @@ escape_char($") -> <<"&quot;">>;
 escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
-%% @doc fetch the value of the specified key from {@link data/0}
--spec data_get(data_key(), data(), Default :: term(), Options :: options()) -> term().
-data_get(Key, Data, Default, Options) ->
+%% @doc convert to {@link data_key/0} from binary.
+-spec convert_keytype(binary(), options()) -> data_key().
+convert_keytype(KeyBin, Options) ->
     case proplists:get_value(key_type, Options, string) of
-        atom ->
-            data_get_(list_to_atom(Key), Data, Default);
-        string ->
-            data_get_(Key, Data, Default)
+        atom   -> list_to_atom(binary_to_list(KeyBin));
+        string -> binary_to_list(KeyBin);
+        binary -> KeyBin
     end.
 
 %% @doc fetch the value of the specified key from {@link data/0}
--spec data_get_(data_key(), data(), Default :: term()) -> term().
+-spec data_get(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
-data_get_(Key, Map, Default) when is_map(Map) ->
+data_get(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
-data_get_(Key, AssocList, Default) ->
+data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
-data_get_(Key, AssocList, Default) ->
+data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
 
