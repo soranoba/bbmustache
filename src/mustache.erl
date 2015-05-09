@@ -58,8 +58,7 @@
 %% You can choose one from these as the type of key in {@link data/0}.
 
 -type data_value() :: data() | iodata() | number() | atom() | fun((data(), function()) -> iodata()).
-%% Function is intended to support a lambda expression.<br />
-%% "false" in the atom does not output as string, because it is treated as boolean.
+%% Function is intended to support a lambda expression.
 
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
@@ -325,7 +324,7 @@ convert_keytype(KeyBin, Options) ->
             try binary_to_existing_atom(KeyBin, utf8) of
                 Atom -> Atom
             catch
-                _:_ -> <<>> % It is not always present in data/0
+                _:_ -> <<" ">> % It is not always present in data/0
             end;
         string -> binary_to_list(KeyBin);
         binary -> KeyBin
