@@ -168,7 +168,7 @@ parse_binary_impl(State, Input) ->
 parse(State, Bin) ->
     case parse1(State, Bin, []) of
         {endtag, {_, OtherTag, _, _, _}} ->
-            error({?PARSE_ERROR, {section_is_incorrect, <<"#", OtherTag/binary>>}});
+            error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
         {_, Tags} ->
             lists:reverse(Tags)
     end.
@@ -179,7 +179,6 @@ parse(State, Bin) ->
 -spec parse1(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
     case binary:split(Bin, Start) of
-        []                       -> {State, Result};
         [B1]                     -> {State, [B1 | Result]};
         [B1, <<"{", B2/binary>>] -> parse2(State, binary:split(B2, <<"}", Stop/binary>>), [B1 | Result]);
         [B1, B2]                 -> parse3(State, binary:split(B2, Stop),                 [B1 | Result])
@@ -238,7 +237,7 @@ parse_loop(State0, Mark, Tag, Input, Result0) ->
                 '^' -> parse1(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
             end;
         {endtag, {_, OtherTag, _, _, _}} ->
-            error({?PARSE_ERROR, {section_is_incorrect, <<"#", OtherTag/binary>>}});
+            error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
         _ ->
             error({?PARSE_ERROR, {section_end_tag_not_found, <<"/", Tag/binary>>}})
     end.
