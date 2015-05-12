@@ -16,3 +16,4 @@ doc/*
 !doc/*.md
 .rebar
 _build
+.rebar3
