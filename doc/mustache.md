@@ -52,8 +52,7 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 
 
 
-  Function is intended to support a lambda expression.<br />
-"false" in the atom does not output as string, because it is treated as boolean.
+  Function is intended to support a lambda expression.
 
 
 
