@@ -186,6 +186,17 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
 
 %% @doc Part of the `parse/1'
 %%
+%% ATTENTION: The result is a list that is inverted.
+-spec parse4(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
+parse4(State, <<"\r\n", Rest/binary>>, Result) ->
+    parse1(State, Rest, Result);
+parse4(State, <<"\n", Rest/binary>>, Result) ->
+    parse1(State, Rest, Result);
+parse4(State, Input, Result) ->
+    parse1(State, Input, Result).
+
+%% @doc Part of the `parse/1'
+%%
 %% 2nd Argument: [TagBinary(may exist unnecessary spaces to the end), RestBinary]
 %% ATTENTION: The result is a list that is inverted.
 -spec parse2(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
@@ -229,12 +240,12 @@ parse3(_, _, _) ->
 %% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
 -spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | endtag().
 parse_loop(State0, Mark, Tag, Input, Result0) ->
-    case parse1(State0, Input, []) of
+    case parse4(State0, Input, []) of
         {endtag, {State, Tag, LastTagSize, Rest, Result1}} ->
             case Mark of
                 '#' -> Source = binary:part(Input, 0, byte_size(Input) - byte_size(Rest) - LastTagSize),
-                       parse1(State, Rest, [{'#', Tag, lists:reverse(Result1), Source} | Result0]);
-                '^' -> parse1(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
+                       parse4(State, Rest, [{'#', Tag, lists:reverse(Result1), Source} | Result0]);
+                '^' -> parse4(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
             end;
         {endtag, {_, OtherTag, _, _, _}} ->
             error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
@@ -249,9 +260,9 @@ parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
     Filename  = ?COND(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
     case file:read_file(Filename) of
         {ok, Bin} ->
-            case parse1(State0, Bin, Result0) of
+            case parse4(State0, Bin, Result0) of
                 {endtag, {_, Tag, _, _, _}} -> error({?PARSE_ERROR, {section_begin_tag_not_found, <<"#", Tag/binary>>}});
-                {State, Result}             -> parse1(State, NextBin, Result)
+                {State, Result}             -> parse4(State, NextBin, Result)
             end;
         _ ->
             error(?FILE_ERROR, [Filename])
@@ -265,7 +276,7 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
     case binary:match(ParseDelimiterBin, <<"=">>) of
         nomatch ->
             case [X || X <- binary:split(ParseDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
-                [Start, Stop] -> parse1(State0#state{start = Start, stop = Stop}, NextBin, Result);
+                [Start, Stop] -> parse4(State0#state{start = Start, stop = Stop}, NextBin, Result);
                 _             -> error({?PARSE_ERROR, delimiters_may_not_contain_whitespaces})
             end;
         _ ->
