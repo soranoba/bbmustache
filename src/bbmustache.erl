@@ -1,7 +1,7 @@
 %% @copyright 2015 Hinagiku Soranoba All Rights Reserved.
 %%
-%% @doc Mustach template engine for Erlang/OTP.
--module(mustache).
+%% @doc Binary pattern match Based Mustach template engine for Erlang/OTP.
+-module(bbmustache).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported API
@@ -112,8 +112,8 @@ compile(Template, Data) ->
 %% @doc Embed the data in the template.
 %%
 %% ```
-%% 1> Template = mustache:parse_binary(<<"{{name}}">>).
-%% 2> mustache:compile(Template, #{"name" => "Alice"}).
+%% 1> Template = bbmustache:parse_binary(<<"{{name}}">>).
+%% 2> bbmustache:compile(Template, #{"name" => "Alice"}).
 %% <<"Alice">>
 %% '''
 %% Data support assoc list or maps (OTP17 or later). <br />

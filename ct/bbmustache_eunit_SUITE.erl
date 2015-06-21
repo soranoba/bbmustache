@@ -1,6 +1,6 @@
 %% @copyright 2015 Hinagiku Soranoba All Rights Reserved.
 
--module(mustache_eunit_SUITE).
+-module(bbmustache_eunit_SUITE).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -20,4 +20,4 @@ all() ->
 %%----------------------------------------------------------------------------------------------------------------------
 
 eunit_ct(_Config) ->
-    ok = eunit:test({application, mustache}).
+    ok = eunit:test({application, bbmustache}).
