@@ -1,13 +1,13 @@
 
 
-# Module mustache #
+# Module bbmustache #
 * [Description](#description)
 * [Data Types](#types)
 * [Function Index](#index)
 * [Function Details](#functions)
 
 
-Mustach template engine for Erlang/OTP.
+Binary pattern match Based Mustach template engine for Erlang/OTP.
 Copyright (c) 2015 Hinagiku Soranoba All Rights Reserved.
 
 
@@ -104,7 +104,7 @@ Equivalent to [`compile(Template, Data, [])`](#compile-3).
 
 
 <pre><code>
-compile(Mustache::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>, Options::[<a href="#type-option">option()</a>]) -&gt; binary()
+compile(Bbmustache::<a href="#type-template">template()</a>, Data::<a href="#type-data">data()</a>, Options::[<a href="#type-option">option()</a>]) -&gt; binary()
 </code></pre>
 <br />
 
@@ -114,8 +114,8 @@ Embed the data in the template.
 
 
 ```
-  1> Template = mustache:parse_binary(<<"{{name}}">>).
-  2> mustache:compile(Template, #{"name" => "Alice"}).
+  1> Template = bbmustache:parse_binary(<<"{{name}}">>).
+  2> bbmustache:compile(Template, #{"name" => "Alice"}).
   <<"Alice">>
 ```
 

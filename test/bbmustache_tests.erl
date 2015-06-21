@@ -1,7 +1,7 @@
 %% coding: latin-1
 %% @copyright 2015 Hinagiku Soranoba All Rights Reserved.
 
--module(mustache_tests).
+-module(bbmustache_tests).
 -include_lib("eunit/include/eunit.hrl").
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -11,19 +11,19 @@
 -define(PARSE_ERROR, incorrect_format).
 -define(FILE_ERROR,  file_not_found).
 
--define(NT_S(X, Y), ?_assertMatch({_, X}, mustache:parse_binary(Y))).
+-define(NT_S(X, Y), ?_assertMatch({_, X}, bbmustache:parse_binary(Y))).
 %% parse_binary_test generater (success case)
--define(NT_F(X, Y), ?_assertError(X,      mustache:parse_binary(Y))).
+-define(NT_F(X, Y), ?_assertError(X,      bbmustache:parse_binary(Y))).
 %% parse_binary_test generater (failure case)
 
 parse_file_test_() ->
     [
-     {"file_not_exist", ?_assertError(?FILE_ERROR, mustache:parse_file(<<"not_exist">>))}
+     {"file_not_exist", ?_assertError(?FILE_ERROR, bbmustache:parse_file(<<"not_exist">>))}
     ].
 
 parse_binary_test_() ->
     [
-     {"mustache:template/0 format check", ?NT_S([<<>>], <<>>)},
+     {"bbmustache:template/0 format check", ?NT_S([<<>>], <<>>)},
 
      {"{{tag}}",     ?NT_S([<<"a">>, {n, <<"t">>}, <<"b">>],   <<"a{{t}}b">>)},
      {"{{ tag }}",   ?NT_S([<<>>, {n, <<"t">>}, <<>>],         <<"{{ t }}">>)},
@@ -93,7 +93,7 @@ assoc_list_render_test_() ->
      {"integer, float, binary, string",
       fun() ->
               ?assertEqual(<<"1, 1.5, hoge, fugo, atom">>,
-                           mustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}, {{a}}">>,
+                           bbmustache:render(<<"{{i}}, {{f}}, {{b}}, {{s}}, {{a}}">>,
                                            [{"i", 1}, {"f", 1.5}, {"b", <<"hoge">>}, {"s", "fugo"}, {"a", atom}]))
       end}
     ].
@@ -104,7 +104,7 @@ atom_and_binary_key_test_() ->
       fun() ->
               F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
               ?assertEqual(<<"<b>Willy is awesome.</b>">>,
-                           mustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy_atom}}{{/wrapped}}">>,
+                           bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy_atom}}{{/wrapped}}">>,
                                            [{name, "Willy"}, {wrapped, F}], [{key_type, atom}])),
               ?assertError(_, binary_to_existing_atom(<<"dummy_atom">>, utf8))
       end},
@@ -112,12 +112,12 @@ atom_and_binary_key_test_() ->
       fun() ->
               F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
               ?assertEqual(<<"<b>Willy is awesome.</b>">>,
-                           mustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
+                           bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
                                            [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
       end}
     ].
 
 unsupported_data_test_() ->
     [
-     {"dict", ?_assertError(function_clause, mustache:render(<<>>, dict:new()))}
+     {"dict", ?_assertError(function_clause, bbmustache:render(<<>>, dict:new()))}
     ].

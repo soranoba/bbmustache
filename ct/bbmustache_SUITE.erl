@@ -1,6 +1,6 @@
 %% @copyright 2015 Hinagiku Soranoba All Rights Reserved.
 
--module(mustache_SUITE).
+-module(bbmustache_SUITE).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -72,71 +72,71 @@ end_per_group(_, _) ->
 %%----------------------------------------------------------------------------------------------------------------------
 
 variables_ct(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"variables.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"variables.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"variables.result">>])),
 
     Data = [{"name", "Chris"}, {"company", "<b>GitHub</b>"}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 sections_ct1(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"false_values.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"false_values.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"false_values.result">>])),
 
     Data1 = [{"person", false}],
     Data2 = [{"person", []}],
     Data3 = [],
-    [?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(X)))
+    [?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(X)))
     || X <- [Data1, Data2, Data3]].
 
 sections_ct2(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"non-empty.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"non-empty.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"non-empty.result">>])),
 
     Data = [{"repo", [ [{"name", "resque"}], [{"name", "hub"}], [{"name", "rip"}]]}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 sections_ct3(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"non-false.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"non-false.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"non-false.result">>])),
 
     Data = [{"person?", [{"name", "Jon"}]}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 sections_ct4(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"invarted.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"invarted.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"invarted.result">>])),
 
     Data = [{"repo", []}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 lambdas_ct(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"lambdas.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"lambdas.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"lambdas.result">>])),
 
     F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
     Data = [{"name", "Willy"}, {"wrapped", F}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 comments_ct(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"comment.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"comment.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"comment.result">>])),
 
     Data = [],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 partials_ct(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"partial.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"partial.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"partial.result">>])),
 
     Data = [{"names", [[{"name", "alice"}], [{"name", "bob"}]]}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 delimiter_ct(Config) ->
-    Template   = mustache:parse_file(filename:join([?config(data_dir, Config), <<"delimiter.mustache">>])),
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"delimiter.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"delimiter.result">>])),
 
     Data = [{"default_tags", "tag1"}, {"erb_style_tags", "tag2"}, {"default_tags_again", "tag3"}],
-    ?assertEqual(File, mustache:compile(Template, (?config(data_conv, Config))(Data))).
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
