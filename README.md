@@ -1,5 +1,7 @@
 bbmustache
 ===========
+[![hex.pm version](https://img.shields.io/hexpm/v/bbmustache.svg)](https://hex.pm/packages/bbmustache)
+
 Binary pattern match Based Mustache template engine for Erlang/OTP.
 
 ## What is Mustach ?
