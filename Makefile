@@ -1,13 +1,13 @@
 APP=mustache
 DIALYZER_OPTS=-Werror_handling -Wrace_conditions -Wunmatched_returns
 
-LIBS=$(ERL_LIBS):_build/default/lib
+LIBS=$(ERL_LIBS):_build/dev/lib
 
 .PHONY: ct
 all: compile ct xref dialyze
 
 compile:
-	@./rebar3 compile
+	@./rebar3 as dev compile
 
 xref:
 	@./rebar3 xref

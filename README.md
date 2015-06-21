@@ -7,27 +7,40 @@ A logic-less templates.
 - [{{mustache}}](http://mustache.github.io/)
 
 ## Overview
-- Binary and map base.
+- Binary pattern match based.
  - Do not use a regular expression !!
-- Support an associative array for the before R17.
+- Support maps and associative arrays.
 
 ## Usage
+### Quick start
+
+```bash
+$ git clone git://github.com/soranoba/mustache.git
+$ cd mustache
+$ make start
+Erlang/OTP 17 [erts-6.3] [source-f9282c6] [64-bit] [smp:4:4] [async-threads:10] [hipe] [kernel-poll:true]
+
+Eshell V6.3  (abort with ^G)
+1> {ok,[mustache]}
+1> mustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
+<<"hoge">>
+2> mustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
+<<"hoge">>
+```
+
 ### Use as a library
 Add the following settings.
 
 ```erlang
 %% rebar.config
 
-%% If you want to use a map is necessary
-{erl_opts, [
-            {platform_define, "^[0-9]+", namespaced_types}
-           ]}.
-
 {deps,
   [
    {mustache, ".*", {git, "git://github.com/soranoba/mustache.git", {branch, "master"}}}
   ]}.
 ```
+
+If you don't use the rebar and use the after OTP17, this library should be compile with `-Dnamespaced_types`.
 
 ### How to use simple Mustache
 - [Mastache Manual](http://mustache.github.io/mustache.5.html)
@@ -69,8 +82,6 @@ Associative array
 You want more information, see the [doc](doc).
 
 ## Attention
-- The number of new line.
- - New line in the template has left all.
 - Lambda expression is included wasted processing.
  - Because it is optimized to `parse_string/1` + `compile/2`.
 
