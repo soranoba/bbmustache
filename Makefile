@@ -4,7 +4,7 @@ DIALYZER_OPTS=-Werror_handling -Wrace_conditions -Wunmatched_returns
 LIBS=$(ERL_LIBS):_build/dev/lib
 
 .PHONY: ct
-all: compile ct xref dialyze
+all: compile ct xref dialyze edoc
 
 compile:
 	@./rebar3 as dev compile
@@ -25,7 +25,7 @@ eunit:
 	@./rebar3 eunit
 
 edoc:
-	@./rebar3 edoc
+	@./rebar3 as dev edoc
 
 start: compile
 	@ERL_LIBS=$(LIBS) erl +stbt db +K true -pz ebin -s reloader -eval 'erlang:display(application:ensure_all_started($(APP))).'
