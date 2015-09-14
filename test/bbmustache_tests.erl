@@ -1,4 +1,3 @@
-%% coding: latin-1
 %% @copyright 2015 Hinagiku Soranoba All Rights Reserved.
 
 -module(bbmustache_tests).
