@@ -52,10 +52,11 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 
 
 <pre><code>
-option() = {key_type, atom | binary | string}
+option() = {key_type, atom | binary | string} | {escape_html, true | false}
 </code></pre>
 
  - key_type: Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
+- escape_html: Whether or not to escape html in values. Default value is `true`.
 
 
 
