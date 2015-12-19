@@ -66,8 +66,9 @@
 
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
--type option()     :: {key_type, atom | binary | string}.
+-type option()     :: {key_type, atom | binary | string} | {escape_html, true | false}.
 %% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
+%% - escape_html: Whether or not to escape html in values. Default value is `true'.
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
@@ -140,7 +141,7 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [escape(to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>))) | Result], Options);
+    compile_impl(T, Map, [maybe_escape(to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>)), Options) | Result], Options);
 compile_impl([{'&', Key} | T], Map, Result, Options) ->
     compile_impl(T, Map, [to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>)) | Result], Options);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
@@ -323,11 +324,21 @@ to_iodata(Atom) when is_atom(Atom) ->
 to_iodata(X) ->
     X.
 
+%% @doc Parse options to see if should escape or not
+-spec should_escape([option()]) -> boolean().
+should_escape(Options) ->
+    proplists:get_value(escape_html, Options, true).
+
 %% @doc HTML Escape
--spec escape(iodata()) -> binary().
-escape(IoData) ->
+-spec maybe_escape(iodata(), [option()]) -> binary().
+maybe_escape(IoData, Options) ->
     Bin = iolist_to_binary(IoData),
-    << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
+    case should_escape(Options) of
+        true ->
+            << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>;
+        false ->
+            Bin
+    end.
 
 %% @see escape/1
 -spec escape_char(0..16#FFFF) -> binary().

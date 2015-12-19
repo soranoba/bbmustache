@@ -120,3 +120,11 @@ unsupported_data_test_() ->
     [
      {"dict", ?_assertError(function_clause, bbmustache:render(<<>>, dict:new()))}
     ].
+
+escape_html_test_() ->
+    [?_assertEqual(
+        <<"&quot;bar&amp;baz&apos;">>,
+        bbmustache:render(<<"{{ foo }}">>, [{"foo", "\"bar&baz'"}], [])),
+     ?_assertEqual(
+        <<"\"bar&baz'">>,
+        bbmustache:render(<<"{{ foo }}">>, [{"foo", "\"bar&baz'"}], [{escape_html, false}]))].
