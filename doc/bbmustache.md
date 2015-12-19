@@ -10,6 +10,11 @@ Binary pattern match Based Mustach template engine for Erlang/OTP.
 
 Copyright (c) 2015 Hinagiku Soranoba All Rights Reserved.
 
+<a name="description"></a>
+
+## Description ##
+This library support all of mustache syntax. <br />
+Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
 <a name="types"></a>
 
 ## Data Types ##

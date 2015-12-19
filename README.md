@@ -28,18 +28,35 @@ Eshell V6.3  (abort with ^G)
 <<"hoge">>
 2> bbmustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
 <<"hoge">>
+
+%% auto http escape
+3> bbmustache:render(<<"<h1>{{tag}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
+<<"<h1>I like Erlang &amp; mustache</h1>">>
+
+%% don't use http escape
+4> bbmustache:render(<<"<h1>{{{tag}}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
+<<"<h1>I like Erlang & mustache</h1>">>
+
+%% change the symbol of the tag
+5> bbmustache:render(<<"{{=<< >>=}} <<tag>>, <<={{ }}=>> {{tag}}">>, #{"tag" => "hi"}).
+<<" hi,  hi">>
 ```
+Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
 
 ### Use as a library
 Add the following settings.
 
 ```erlang
-%% rebar.config
+%% rebar (rebar.config)
 
 {deps,
   [
    {bbmustache, ".*", {git, "git://github.com/soranoba/bbmustache.git", {branch, "master"}}}
   ]}.
+
+%% rebar3 (rebar.config)
+
+{deps, [bbmustache]}.
 ```
 
 If you don't use the rebar and use the OTP17 or later, this library should be compile with `-Dnamespaced_types`.
