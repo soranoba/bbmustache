@@ -84,7 +84,8 @@ parse_binary_test_() ->
      {"{{ = << >> = }}<<n>>",   ?NT_S([<<>>, <<>>, {n, <<"n">>}, <<>>], <<"{{ = << >> = }}<<n>>">>)},
      {"{{=<= =>=}}<=n=>",       ?NT_F({?PARSE_ERROR, delimiters_may_not_contain_equals},      <<"{{=<= =>=}}<=n=>">>)},
      {"{{ = < < >> = }}< <n>>", ?NT_F({?PARSE_ERROR, delimiters_may_not_contain_whitespaces}, <<"{{ = < < >> = }}< <n>>">>)},
-     {"{{=<< >>}}",             ?NT_F({?PARSE_ERROR, {unsupported_tag, <<"=<< >>">>}},        <<"{{=<< >>}}">>)}
+     {"{{=<< >>}}",             ?NT_F({?PARSE_ERROR, {unsupported_tag, <<"=<< >>">>}},        <<"{{=<< >>}}">>)},
+     {"{{#block}}{{ . }}{{/block}}", ?NT_S([<<>>, {'#', <<"block">>, [<<>>, {'.'}, <<>>], <<"{{ . }}">>}, <<>>], <<"{{#block}}{{ . }}{{/block}}">>)}
     ].
 
 assoc_list_render_test_() ->

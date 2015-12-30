@@ -4,6 +4,7 @@
 %%
 %% This library support all of mustache syntax. <br />
 %% Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
+%%
 
 -module(bbmustache).
 
@@ -34,12 +35,27 @@
 -define(COND(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
 
--type key()  :: binary().
--type tag()  :: {n,   key()}                              |
-                {'&', key()}                              |
-                {'#', key(), [tag()], Source :: binary()} |
-                {'^', key(), [tag()]}                     |
-                binary().
+-type key()    :: binary().
+-type source() :: binary().
+%% If you use lamda expressions, the original text is necessary.
+%%
+%% ```
+%% e.g.
+%%   template:
+%%     {{#lamda}}a{{b}}c{{/lamda}}
+%%   parse result:
+%%     {'#', <<"lamda">>, [<<"a">>, {'n', <<"b">>}, <<"c">>], <<"a{{b}}c">>}
+%% '''
+%%
+%% NOTE:
+%%   Since the binary reference is used internally, it is not a capacitively large waste.
+%%   However, the greater the number of tags used, it should use the wasted memory.
+-type tag()    :: {n,   key()}
+                | {'&', key()}
+                | {'#', key(), [tag()], source()}
+                | {'^', key(), [tag()]}
+                | {'.'}
+                | binary(). % plain text
 
 -record(?MODULE,
         {
@@ -159,6 +175,8 @@ compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
         false -> compile_impl(T, Map, Result, Options)
     end;
+compile_impl([{'.'} | T], Map, Result, Options) ->
+    compile_impl(T, Map, [to_iodata(Map) | Result], Options);
 compile_impl([Bin | T], Map, Result, Options) ->
     compile_impl(T, Map, [Bin | Result], Options).
 
@@ -187,17 +205,6 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
         [B1, <<"{", B2/binary>>] -> parse2(State, binary:split(B2, <<"}", Stop/binary>>), [B1 | Result]);
         [B1, B2]                 -> parse3(State, binary:split(B2, Stop),                 [B1 | Result])
     end.
-
-%% @doc Part of the `parse/1'
-%%
-%% ATTENTION: The result is a list that is inverted.
--spec parse4(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
-parse4(State, <<"\r\n", Rest/binary>>, Result) ->
-    parse1(State, Rest, Result);
-parse4(State, <<"\n", Rest/binary>>, Result) ->
-    parse1(State, Rest, Result);
-parse4(State, Input, Result) ->
-    parse1(State, Input, Result).
 
 %% @doc Part of the `parse/1'
 %%
@@ -234,10 +241,24 @@ parse3(State, [B1, B2], Result) ->
         <<">", Tag/binary>> ->
             parse_jump(State, remove_space_from_edge(Tag), B2, Result);
         Tag ->
-            parse1(State, B2, [{n, remove_space_from_tail(Tag)} | Result])
+            case remove_space_from_tail(Tag) of
+                <<".">>    -> parse1(State, B2, [{'.'} | Result]);
+                UnspaceTag -> parse1(State, B2, [{n, UnspaceTag} | Result])
+            end
     end;
 parse3(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
+
+%% @doc Part of the `parse/1'
+%%
+%% ATTENTION: The result is a list that is inverted.
+-spec parse4(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
+parse4(State, <<"\r\n", Rest/binary>>, Result) ->
+    parse1(State, Rest, Result);
+parse4(State, <<"\n", Rest/binary>>, Result) ->
+    parse1(State, Rest, Result);
+parse4(State, Input, Result) ->
+    parse1(State, Input, Result).
 
 %% @doc Loop processing part of the `parse/1'
 %%

@@ -10,10 +10,10 @@
          init_per_group/2, end_per_group/2,
 
          variables_ct/1, sections_ct1/1, sections_ct2/1, sections_ct3/1, sections_ct4/1,
-         lambdas_ct/1, comments_ct/1, partials_ct/1, delimiter_ct/1
+         lambdas_ct/1, comments_ct/1, partials_ct/1, delimiter_ct/1, dot_ct/1
         ]).
 -define(ALL_TEST, [variables_ct, sections_ct1, sections_ct2, sections_ct3, sections_ct4,
-                   lambdas_ct, comments_ct, partials_ct, delimiter_ct]).
+                   lambdas_ct, comments_ct, partials_ct, delimiter_ct, dot_ct]).
 
 -ifdef(namespaced_types).
 -define(OTP17(X, Y), X).
@@ -136,6 +136,13 @@ delimiter_ct(Config) ->
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"delimiter.result">>])),
 
     Data = [{"default_tags", "tag1"}, {"erb_style_tags", "tag2"}, {"default_tags_again", "tag3"}],
+    ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
+
+dot_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"dot.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"dot.result">>])),
+
+    Data = [{"mylist", ["Item 1", "Item 2", "Item 3"]}],
     ?assertEqual(File, bbmustache:compile(Template, (?config(data_conv, Config))(Data))).
 
 %%----------------------------------------------------------------------------------------------------------------------
