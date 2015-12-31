@@ -373,14 +373,14 @@ convert_keytype(KeyBin, Options) ->
 %% @doc fetch the value of the specified key from {@link data/0}
 -spec data_get(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
-data_get(".", Data, _Default) ->
+data_get(Dot, Data, _Default) when Dot =:= "."; Dot =:= '.'; Dot =:= <<".">> ->
     Data;
 data_get(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
-data_get(".", Data, _Default) ->
+data_get(Dot, Data, _Default) when Dot =:= "."; Dot =:= '.'; Dot =:= <<".">> ->
     Data;
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
