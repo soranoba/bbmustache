@@ -43,6 +43,47 @@ Eshell V6.3  (abort with ^G)
 ```
 Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
 
+### Undocumented function
+Although present in many of the implementation, there is a function that does not exist in the document of the mustache.<br />
+The `bbmustache` corresponds as much as possible to it.
+
+#### Render plain lists
+If you specify the dot as a key, it points to this function.
+
+```erlang
+%% template.mustache
+{{#mylist}}
+  escape
+    {{.}}
+  unescape
+    {{{.}}}
+{{/mylist}}
+
+%% script
+1> bbmustache:compile(bbmustache:parse_file("template.mustache"), #{"mylist" => ["<b>1</b>", "<b>2</b>", "<b>3</b>"]}).
+<<"  escape\n    &lt;b&gt;1&lt;&#x2F;b&gt;\n  unescape\n    <b>1</b>\n  escape\n    &lt;b&gt;2&lt;&#x2F;b&gt;\n  unescape\n   "...>>
+
+%% result
+  escape
+    &lt;b&gt;1&lt;&#x2F;b&gt;
+  unescape
+    <b>1</b>
+  escape
+    &lt;b&gt;2&lt;&#x2F;b&gt;
+  unescape
+    <b>2</b>
+  escape
+    &lt;b&gt;3&lt;&#x2F;b&gt;
+  unescape
+    <b>3</b>
+'''
+However, the types of correspond is only these.<br />
+The behavior when given the other types, it is undefined.
+
+```erlang
+[integer() | float() | binary() | string() | atom()]
+'''
+
 ### Use as a library
 Add the following settings.
 
