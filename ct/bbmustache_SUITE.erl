@@ -57,14 +57,14 @@ end_per_suite(_) ->
 
 init_per_group(assoc_list, Config) ->
     [{data_conv, fun(X) -> X end} | Config];
-init_per_group(maps, Config) ->
-    ?OTP17([{data_conv, fun list_to_maps_recursive/1} | Config],
+init_per_group(maps, _Config) ->
+    ?OTP17([{data_conv, fun list_to_maps_recursive/1} | _Config],
            {skip, map_is_unsupported});
-init_per_group(assoc_list_into_maps, Config) ->
-    ?OTP17([{data_conv, fun maps:from_list/1} | Config],
+init_per_group(assoc_list_into_maps, _Config) ->
+    ?OTP17([{data_conv, fun maps:from_list/1} | _Config],
            {skip, map_is_unsupported});
-init_per_group(maps_into_assoc_list, Config) ->
-    ?OTP17([{data_conv, fun(X) -> deps_list_to_maps(X, 2) end} | Config],
+init_per_group(maps_into_assoc_list, _Config) ->
+    ?OTP17([{data_conv, fun(X) -> deps_list_to_maps(X, 2) end} | _Config],
            {skip, map_is_unsupported});
 init_per_group(atom_key, Config) ->
     [{data_conv, fun(X) -> key_conv_recursive(X, fun erlang:list_to_atom/1) end},
