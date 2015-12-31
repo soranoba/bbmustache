@@ -54,7 +54,6 @@
                 | {'&', key()}
                 | {'#', key(), [tag()], source()}
                 | {'^', key(), [tag()]}
-                | {'.'}
                 | binary(). % plain text
 
 -record(?MODULE,
@@ -175,8 +174,6 @@ compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
         false -> compile_impl(T, Map, Result, Options)
     end;
-compile_impl([{'.'} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [to_iodata(Map) | Result], Options);
 compile_impl([Bin | T], Map, Result, Options) ->
     compile_impl(T, Map, [Bin | Result], Options).
 
@@ -241,10 +238,7 @@ parse3(State, [B1, B2], Result) ->
         <<">", Tag/binary>> ->
             parse_jump(State, remove_space_from_edge(Tag), B2, Result);
         Tag ->
-            case remove_space_from_tail(Tag) of
-                <<".">>    -> parse1(State, B2, [{'.'} | Result]);
-                UnspaceTag -> parse1(State, B2, [{n, UnspaceTag} | Result])
-            end
+            parse1(State, B2, [{n, remove_space_from_tail(Tag)} | Result])
     end;
 parse3(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
@@ -376,11 +370,15 @@ convert_keytype(KeyBin, Options) ->
 %% @doc fetch the value of the specified key from {@link data/0}
 -spec data_get(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
+data_get(".", Data, _Default) ->
+    Data;
 data_get(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
+data_get(".", Data, _Default) ->
+    Data;
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
