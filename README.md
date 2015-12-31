@@ -76,13 +76,13 @@ If you specify the dot as a key, it points to this function.
     &lt;b&gt;3&lt;&#x2F;b&gt;
   unescape
     <b>3</b>
-'''
+```
 However, the types of correspond is only these.<br />
 The behavior when given the other types, it is undefined.
 
 ```erlang
 [integer() | float() | binary() | string() | atom()]
-'''
+```
 
 ### Use as a library
 Add the following settings.
