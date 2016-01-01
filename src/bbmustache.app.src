@@ -3,7 +3,7 @@
               {vsn,"1.1.0"},
               {registered,[]},
               {applications,[kernel,stdlib]},
-              {contributors,["Hinagiku Soranoba"]},
+              {maintainers, ["Hinagiku Soranoba"]},
               {licenses,["MIT"]},
               {links,[{"GitHub","https://github.com/soranoba/bbmustache"}]},
               {env,[]}]}.
