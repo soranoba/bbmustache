@@ -4,14 +4,14 @@ bbmustache
 
 Binary pattern match Based Mustache template engine for Erlang/OTP.
 
-## What is Mustach ?
-A logic-less templates.
-- [{{mustache}}](http://mustache.github.io/)
-
 ## Overview
-- Binary pattern match based.
+- Binary pattern match based mustache template engine for Erlang/OTP.
  - Do not use a regular expression !!
 - Support maps and associative arrays.
+
+### What is Mustach ?
+A logic-less templates.
+- [{{mustache}}](http://mustache.github.io/)
 
 ## Usage
 ### Quick start
@@ -28,20 +28,59 @@ Eshell V6.3  (abort with ^G)
 <<"hoge">>
 2> bbmustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
 <<"hoge">>
-
-%% auto http escape
-3> bbmustache:render(<<"<h1>{{tag}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
-<<"<h1>I like Erlang &amp; mustache</h1>">>
-
-%% don't use http escape
-4> bbmustache:render(<<"<h1>{{{tag}}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
-<<"<h1>I like Erlang & mustache</h1>">>
-
-%% change the symbol of the tag
-5> bbmustache:render(<<"{{=<< >>=}} <<tag>>, <<={{ }}=>> {{tag}}">>, #{"tag" => "hi"}).
-<<" hi,  hi">>
 ```
-Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
+
+### Use as a library
+Add the following settings.
+
+```erlang
+%% rebar (rebar.config)
+
+{deps,
+  [
+   {bbmustache, ".*", {git, "git://github.com/soranoba/bbmustache.git", {branch, "master"}}}
+  ]}.
+
+%% rebar3 (rebar.config)
+
+{deps, [bbmustache]}.
+```
+
+If you don't use the rebar and use the OTP17 or later, this library should be compile with `-Dnamespaced_types`.
+
+### How to use simple Mustache
+
+Map (R17 or later)
+```erlang
+1> bbmustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
+<<"hoge">>
+
+2> Template1 = bbmustache:parse_binary(<<"{{name}}">>).
+...
+3> bbmustache:compile(Template1, #{"name" => "hoge"}).
+<<"hoge">>
+
+4> Template2 = bbmustache:parse_file(<<"./hoge.mustache">>).
+...
+5> bbmustache:compile(Template2, #{"name" => "hoge"}).
+<<"hoge">>
+```
+
+Associative array
+```erlang
+1> bbmustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
+<<"hoge">>
+
+2> Template1 = bbmustache:parse_binary(<<"{{name}}">>).
+...
+3> bbmustache:compile(Template1, [{"name", "hoge"}]).
+<<"hoge">>
+
+4> Template2 = bbmustache:parse_file(<<"./hoge.mustache">>).
+...
+5> bbmustache:compile(Template2, [{"name", "hoge"}]).
+<<"hoge">>
+```
 
 ### Undocumented function
 Although present in many of the implementation, there is a function that does not exist in the document of the mustache.<br />
@@ -84,62 +123,35 @@ The behavior when given the other types, it is undefined.
 [integer() | float() | binary() | string() | atom()]
 ```
 
-### Use as a library
-Add the following settings.
-
-```erlang
-%% rebar (rebar.config)
-
-{deps,
-  [
-   {bbmustache, ".*", {git, "git://github.com/soranoba/bbmustache.git", {branch, "master"}}}
-  ]}.
-
-%% rebar3 (rebar.config)
-
-{deps, [bbmustache]}.
-```
-
-If you don't use the rebar and use the OTP17 or later, this library should be compile with `-Dnamespaced_types`.
-
-### How to use simple Mustache
-- [Mastache Manual](http://mustache.github.io/mustache.5.html)
- - Support all of syntax !
-
-Map (R17 or later)
-```erlang
-1> bbmustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
-<<"hoge">>
-
-2> Template1 = bbmustache:parse_binary(<<"{{name}}">>).
-...
-3> bbmustache:compile(Template1, #{"name" => "hoge"}).
-<<"hoge">>
-
-4> Template2 = bbmustache:parse_file(<<"./hoge.mustache">>).
-...
-5> bbmustache:compile(Template2, #{"name" => "hoge"}).
-<<"hoge">>
-```
-
-Associative array
-```erlang
-1> bbmustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
-<<"hoge">>
-
-2> Template1 = bbmustache:parse_binary(<<"{{name}}">>).
-...
-3> bbmustache:compile(Template1, [{"name", "hoge"}]).
-<<"hoge">>
-
-4> Template2 = bbmustache:parse_file(<<"./hoge.mustache">>).
-...
-5> bbmustache:compile(Template2, [{"name", "hoge"}]).
-<<"hoge">>
-```
-
 ### More information
-You want more information, see the [doc](doc).
+Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.<br />
+`bbmustache` supports all of the syntax that is described in it.<br />
+
+If you want more information regarding the use of `bbmustache`, please see the `bbmustache`'s [document](doc).
+
+## FAQ
+
+### Avoid http escaping
+
+```erlang
+%% please use {{{tag}}}
+1> bbmustache:render(<<"<h1>{{{tag}}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
+<<"<h1>I like Erlang & mustache</h1>">>
+```
+
+### Want to use symbol of tag
+
+```erlang
+1> bbmustache:render(<<"{{=<< >>=}} <<tag>>, <<={{ }}=>> {{tag}}">>, #{"tag" => "hi"}).
+<<" hi,  hi">>
+```
+
+### Want to change the type of the key
+
+```erlang
+1> bbmustache:render(<<"{{tag}}">>, #{tag => "hi"}, [{key_type, atom}]).
+<<"hi">>
+```
 
 ## Attention
 - Lambda expression is included wasted processing.
