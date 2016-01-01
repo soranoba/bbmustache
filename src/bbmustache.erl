@@ -4,6 +4,7 @@
 %%
 %% This library support all of mustache syntax. <br />
 %% Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
+%%
 
 -module(bbmustache).
 
@@ -34,12 +35,26 @@
 -define(COND(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
 
--type key()  :: binary().
--type tag()  :: {n,   key()}                              |
-                {'&', key()}                              |
-                {'#', key(), [tag()], Source :: binary()} |
-                {'^', key(), [tag()]}                     |
-                binary().
+-type key()    :: binary().
+-type source() :: binary().
+%% If you use lamda expressions, the original text is necessary.
+%%
+%% ```
+%% e.g.
+%%   template:
+%%     {{#lamda}}a{{b}}c{{/lamda}}
+%%   parse result:
+%%     {'#', <<"lamda">>, [<<"a">>, {'n', <<"b">>}, <<"c">>], <<"a{{b}}c">>}
+%% '''
+%%
+%% NOTE:
+%%   Since the binary reference is used internally, it is not a capacitively large waste.
+%%   However, the greater the number of tags used, it should use the wasted memory.
+-type tag()    :: {n,   key()}
+                | {'&', key()}
+                | {'#', key(), [tag()], source()}
+                | {'^', key(), [tag()]}
+                | binary(). % plain text
 
 -record(?MODULE,
         {
@@ -190,17 +205,6 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
 
 %% @doc Part of the `parse/1'
 %%
-%% ATTENTION: The result is a list that is inverted.
--spec parse4(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
-parse4(State, <<"\r\n", Rest/binary>>, Result) ->
-    parse1(State, Rest, Result);
-parse4(State, <<"\n", Rest/binary>>, Result) ->
-    parse1(State, Rest, Result);
-parse4(State, Input, Result) ->
-    parse1(State, Input, Result).
-
-%% @doc Part of the `parse/1'
-%%
 %% 2nd Argument: [TagBinary(may exist unnecessary spaces to the end), RestBinary]
 %% ATTENTION: The result is a list that is inverted.
 -spec parse2(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
@@ -238,6 +242,17 @@ parse3(State, [B1, B2], Result) ->
     end;
 parse3(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
+
+%% @doc Part of the `parse/1'
+%%
+%% ATTENTION: The result is a list that is inverted.
+-spec parse4(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
+parse4(State, <<"\r\n", Rest/binary>>, Result) ->
+    parse1(State, Rest, Result);
+parse4(State, <<"\n", Rest/binary>>, Result) ->
+    parse1(State, Rest, Result);
+parse4(State, Input, Result) ->
+    parse1(State, Input, Result).
 
 %% @doc Loop processing part of the `parse/1'
 %%
@@ -335,7 +350,10 @@ escape_char($<) -> <<"&lt;">>;
 escape_char($>) -> <<"&gt;">>;
 escape_char($&) -> <<"&amp;">>;
 escape_char($") -> <<"&quot;">>;
-escape_char($') -> <<"&apos;">>;
+escape_char($') -> <<"&#39;">>;
+escape_char($/) -> <<"&#x2F;">>;
+escape_char($`) -> <<"&#x60;">>;
+escape_char($=) -> <<"&#x3D;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc convert to {@link data_key/0} from binary.
@@ -355,11 +373,15 @@ convert_keytype(KeyBin, Options) ->
 %% @doc fetch the value of the specified key from {@link data/0}
 -spec data_get(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
+data_get(Dot, Data, _Default) when Dot =:= "."; Dot =:= '.'; Dot =:= <<".">> ->
+    Data;
 data_get(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
+data_get(Dot, Data, _Default) when Dot =:= "."; Dot =:= '.'; Dot =:= <<".">> ->
+    Data;
 data_get(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
