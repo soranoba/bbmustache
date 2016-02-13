@@ -4,7 +4,7 @@ DIALYZER_OPTS=-Werror_handling -Wrace_conditions -Wunmatched_returns
 LIBS=$(ERL_LIBS):_build/dev/lib
 
 .PHONY: ct
-all: compile ct xref dialyze edoc
+all: compile eunit ct xref dialyze edoc
 
 compile:
 	@./rebar3 as dev compile
