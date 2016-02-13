@@ -1,0 +1,9 @@
+language: erlang
+otp_release:
+  - 18.2
+  - 17.5
+  - R16B03-1
+script: "rm -rf _build; make"
+notifications:
+  email:
+    - soranoba@gmail.com
