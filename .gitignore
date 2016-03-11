@@ -17,3 +17,4 @@ doc/*
 .rebar
 _build
 .rebar3
+_checkouts
