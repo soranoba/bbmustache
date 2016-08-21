@@ -284,7 +284,7 @@ parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
                 {State, Result}             -> parse4(State, NextBin, Result)
             end;
         _ ->
-            error(?FILE_ERROR, [Filename])
+            error({?FILE_ERROR, Filename})
     end.
 
 %% @doc Update delimiter part of the `parse/1'
