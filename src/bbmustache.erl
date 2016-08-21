@@ -391,11 +391,11 @@ data_get(Key, AssocList, Default) ->
 %% maybe: There is also the possibility of iolist
 -spec check_data_type(data() | term()) -> boolean() | maybe.
 -ifdef(namespaced_types).
-check_data_type([])           -> maybe;
-check_data_type([{_, _} | _]) -> true;
-check_data_type(Map)          -> is_map(Map).
+check_data_type([])                               -> maybe;
+check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
+check_data_type(Map)                              -> is_map(Map).
 -else.
-check_data_type([])           -> maybe;
-check_data_type([{_, _} | _]) -> true;
-check_data_type(_)            -> false.
+check_data_type([])                               -> maybe;
+check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
+check_data_type(_)                                -> false.
 -endif.
