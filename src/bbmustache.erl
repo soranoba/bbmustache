@@ -32,8 +32,12 @@
 
 -define(PARSE_ERROR, incorrect_format).
 -define(FILE_ERROR,  file_not_found).
--define(COND(Cond, TValue, FValue),
+-define(IIF(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
+
+-define(ADD(X, Y), ?IIF(X =:= <<>>, Y, [X | Y])).
+-define(START_TAG, <<"{{">>).
+-define(STOP_TAG,  <<"}}">>).
 
 -type key()    :: binary().
 -type source() :: binary().
@@ -54,11 +58,14 @@
                 | {'&', key()}
                 | {'#', key(), [tag()], source()}
                 | {'^', key(), [tag()]}
+                | {'>', key()}
                 | binary(). % plain text
 
 -record(?MODULE,
         {
-          data :: [tag()]
+          data          :: [tag()],
+          partials = [] :: [{key(), [tag()]}],
+          options  = [] :: [option()]
         }).
 
 -opaque template() :: #?MODULE{}.
@@ -67,9 +74,10 @@
 
 -record(state,
         {
-          dirname = <<>>     :: file:filename_all(),
-          start   = <<"{{">> :: binary(),
-          stop    = <<"}}">> :: binary()
+          dirname  = <<>>       :: file:filename_all(),
+          start    = ?START_TAG :: binary(),
+          stop     = ?STOP_TAG  :: binary(),
+          partials = []         :: [key()]
         }).
 -type state() :: #state{}.
 
@@ -118,9 +126,16 @@ parse_binary(Bin) when is_binary(Bin) ->
 %% @doc Create a {@link template/0} from a file.
 -spec parse_file(file:filename_all()) -> template().
 parse_file(Filename) ->
-    case file:read_file(Filename) of
-        {ok, Bin} -> parse_binary_impl(#state{dirname = filename:dirname(Filename)}, Bin);
-        _         -> error(?FILE_ERROR, [Filename])
+    State = #state{dirname = filename:dirname(Filename)},
+    case to_binary(filename:extension(Filename)) of
+        <<".mustache">> = Ext ->
+            Partials = [Key = to_binary(filename:basename(Filename, Ext))],
+            parse_binary_impl(State#state{partials = Partials}, #?MODULE{data = [{'>', Key}]});
+        _ ->
+            case file:read_file(Filename) of
+                {ok, Bin} -> parse_binary_impl(State, Bin);
+                _         -> error(?FILE_ERROR, [Filename])
+            end
     end.
 
 %% @equiv compile(Template, Data, [])
@@ -141,7 +156,9 @@ compile(Template, Data) ->
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
     case check_data_type(Data) of
         false -> error(function_clause, [T, Data]);
-        _     -> iolist_to_binary(lists:reverse(compile_impl(Tags, Data, [], Options)))
+        _     ->
+            Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = []}),
+            iolist_to_binary(lists:reverse(Ret))
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -151,45 +168,77 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 %% @doc {@link compile/2}
 %%
 %% ATTENTION: The result is a list that is inverted.
--spec compile_impl(Template :: [tag()], data(), Result :: iodata(), Options :: [option()]) -> iodata().
+-spec compile_impl(Template :: [tag()], data(), Result :: iodata(), #?MODULE{}) -> iodata().
 compile_impl([], _, Result, _) ->
     Result;
-compile_impl([{n, Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [escape(to_iodata(get_data_recursive(Key, Map, <<>>, Options))) | Result], Options);
-compile_impl([{'&', Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [to_iodata(get_data_recursive(Key, Map, <<>>, Options)) | Result], Options);
-compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
-    Value = get_data_recursive(Key, Map, false, Options),
+compile_impl([{n, Key} | T], Map, Result, State) ->
+    compile_impl(T, Map, ?ADD(escape(to_iodata(get_data_recursive(Key, Map, <<>>, State))), Result), State);
+compile_impl([{'&', Key} | T], Map, Result, State) ->
+    compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Key, Map, <<>>, State)), Result), State);
+compile_impl([{'#', Key, Tags, Source} | T], Map, Result, State) ->
+    Value = get_data_recursive(Key, Map, false, State),
     case check_data_type(Value) of
-        true                         -> compile_impl(T, Map, compile_impl(Tags, Value, Result, Options), Options);
-        _ when is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, Options) end,
-                                                                         Result, Value), Options);
-        _ when Value =:= false       -> compile_impl(T, Map, Result, Options);
-        _ when is_function(Value, 2) -> compile_impl(T, Map, [Value(Source, fun(Text) -> render(Text, Map, Options) end) | Result], Options);
-        _                            -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options)
+        true ->
+            compile_impl(T, Map, compile_impl(Tags, Value, Result, State), State);
+        _ when is_list(Value) ->
+            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, State) end,
+                                             Result, Value), State);
+        _ when Value =:= false ->
+            compile_impl(T, Map, Result, State);
+        _ when is_function(Value, 2) ->
+            Ret = Value(Source, fun(Text) -> render(Text, Map, State#?MODULE.options) end),
+            compile_impl(T, Map, ?ADD(Ret, Result), State);
+        _ ->
+            compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State)
     end;
-compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
-    Value = get_data_recursive(Key, Map, false, Options),
+compile_impl([{'^', Key, Tags} | T], Map, Result, State) ->
+    Value = get_data_recursive(Key, Map, false, State),
     case Value =:= [] orelse Value =:= false of
-        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
-        false -> compile_impl(T, Map, Result, Options)
+        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State);
+        false -> compile_impl(T, Map, Result, State)
     end;
-compile_impl([Bin | T], Map, Result, Options) ->
-    compile_impl(T, Map, [Bin | Result], Options).
+compile_impl([{'>', Key} | T], Map, Result0, #?MODULE{partials = Partials} = State) ->
+    case proplists:get_value(Key, Partials) of
+        undefined -> compile_impl(T, Map, Result0, State);
+        PartialT  ->
+            compile_impl(T, Map, compile_impl(PartialT, Map, Result0, State), State)
+    end;
+compile_impl([Bin | T], Map, Result, State) ->
+    compile_impl(T, Map, ?ADD(Bin, Result), State).
 
 %% @see parse_binary/1
--spec parse_binary_impl(state(), Input :: binary()) -> template().
+-spec parse_binary_impl(state(), Input | #?MODULE{}) -> template() when
+      Input :: binary().
+parse_binary_impl(#state{partials = []}, Template = #?MODULE{}) ->
+    Template;
+parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MODULE{partials = Partials}) ->
+    case proplists:is_defined(P, Partials) of
+        true  -> parse_binary_impl(State#state{partials = PartialKeys}, Template);
+        false ->
+            Filename0 = <<P/binary, ".mustache">>,
+            Dirname   = State#state.dirname,
+            Filename  = ?IIF(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
+            case file:read_file(Filename) of
+                {ok, Input} ->
+                    {State1, Data} = parse(State, Input),
+                    parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]});
+                _ ->
+                    error({?FILE_ERROR, Filename})
+            end
+    end;
 parse_binary_impl(State, Input) ->
-    #?MODULE{data = parse(State, Input)}.
+    {State1, Data} = parse(State, Input),
+    parse_binary_impl(State1, #?MODULE{data = Data}).
 
 %% @doc Analyze the syntax of the mustache.
--spec parse(state(), binary()) -> [tag()].
-parse(State, Bin) ->
-    case parse1(State, Bin, []) of
+-spec parse(state(), binary()) -> {#state{}, [tag()]}.
+parse(State0, Bin) ->
+    case parse1(State0, Bin, []) of
         {endtag, {_, OtherTag, _, _, _}} ->
             error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
-        {_, Tags} ->
-            lists:reverse(Tags)
+        {#state{partials = Partials} = State, Tags} ->
+            {State#state{partials = lists:usort(Partials), start = ?START_TAG, stop = ?STOP_TAG},
+             lists:reverse(Tags)}
     end.
 
 %% @doc Part of the `parse/1'
@@ -198,15 +247,15 @@ parse(State, Bin) ->
 -spec parse1(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
     case binary:match(Bin, [Start, <<"\n">>]) of
-        nomatch -> {State, [Bin | Result]};
+        nomatch -> {State, ?ADD(Bin, Result)};
         {S, L}  ->
             Pos = S + L,
             B2  = binary:part(Bin, Pos, byte_size(Bin) - Pos),
             case binary:at(Bin, S) of
-                $\n -> parse1(State, B2, [binary:part(Bin, 0, Pos) | Result]); % \n
+                $\n -> parse1(State, B2, ?ADD(binary:part(Bin, 0, Pos), Result)); % \n
                 _   ->
-                    StopSeparator = ?COND(binary:first(B2) =:= ${, <<"}", Stop/binary>>, Stop),
-                    parse3(State, binary:split(B2, StopSeparator), [binary:part(Bin, 0, S) | Result])
+                    StopSeparator = ?IIF(binary:first(B2) =:= ${, <<"}", Stop/binary>>, Stop),
+                    parse2(State, [binary:part(Bin, 0, S) | binary:split(B2, StopSeparator)], Result)
             end
     end.
 
@@ -214,52 +263,62 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
 %%
 %% 2nd Argument: [TagBinary(may exist unnecessary spaces to the end), RestBinary]
 %% ATTENTION: The result is a list that is inverted.
--spec parse3(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
-parse3(State, [B1, B2], Result) ->
-    case remove_space_from_head(B1) of
+-spec parse2(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
+parse2(State, [B1, B2, B3], Result) ->
+    case remove_space_from_head(B2) of
         <<T, Tag/binary>> when T =:= $&; T =:= ${ ->
-            parse1(State, B2, [{'&', remove_spaces(Tag)} | Result]);
+            parse1(State, B3, [{'&', remove_spaces(Tag)} | ?ADD(B1, Result)]);
         <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
-            parse_loop(State, ?COND(T =:= $#, '#', '^'), remove_spaces(Tag), B2, Result);
+            parse_loop(State, ?IIF(T =:= $#, '#', '^'), remove_spaces(Tag), B3, [B1 | Result]);
         <<"=", Tag0/binary>> ->
             Tag1 = remove_space_from_tail(Tag0),
             Size = byte_size(Tag1) - 1,
             case Size >= 0 andalso Tag1 of
-                <<Tag2:Size/binary, "=">> -> parse_delimiter(State, Tag2, B2, Result);
+                <<Tag2:Size/binary, "=">> -> parse_delimiter(State, Tag2, B3, [B1 | Result]);
                 _                         -> error({?PARSE_ERROR, {unsupported_tag, <<"=", Tag0/binary>>}})
             end;
         <<"!", _/binary>> ->
-            parse4(State, B2, Result);
+            parse3(State, B3, [B1 | Result]);
         <<"/", Tag/binary>> ->
-            {endtag, {State, remove_spaces(Tag), byte_size(B1) + 4, B2, Result}};
+            {endtag, {State, remove_spaces(Tag), byte_size(B2) + 4, B3, ?ADD(B1, Result)}};
         <<">", Tag/binary>> ->
-            parse_jump(State, remove_spaces(Tag), B2, Result);
+            parse_jump(State, remove_spaces(Tag), B3, [B1 | Result]);
         Tag ->
-            parse1(State, B2, [{n, remove_spaces(Tag)} | Result])
+            parse1(State, B3, [{n, remove_spaces(Tag)} | ?ADD(B1, Result)])
     end;
-parse3(_, _, _) ->
+parse2(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
 
-parse4(State, Post, [Tag, Pre | Result]) when is_tuple(Tag) ->
-    parse4_impl(State, Pre, Tag, Post, Result);
-parse4(State, Post, [Tag | Result]) when is_tuple(Tag) ->
-    parse4_impl(State, <<>>, Tag, Post, Result);
-parse4(State, Post, [Pre | Result]) ->
-    parse4_impl(State, Pre, false, Post, Result);
-parse4(State, Post, Result) ->
-    parse4_impl(State, <<>>, false, Post, Result).
+%% @doc Part of the `parse/1'
+%%
+%% it is end processing of tag that need to be considered the standalone.
+-spec parse3(#state{}, binary(), [tag()]) -> {state(), [tag()]} | endtag().
+parse3(State, Post, [Tag, Pre | Result]) when is_tuple(Tag) ->
+    parse3_impl(State, Pre, Tag, Post, Result);
+parse3(State, Post, [Tag | Result]) when is_tuple(Tag) ->
+    parse3_impl(State, <<>>, Tag, Post, Result);
+parse3(State, Post, [Pre | Result]) ->
+    parse3_impl(State, Pre, false, Post, Result);
+parse3(State, Post, Result) ->
+    parse3_impl(State, <<>>, false, Post, Result).
 
-parse4_impl(State, Pre, Tag, Post, Result) ->
+%% @see parse3/3
+-spec parse3_impl(#state{}, binary(), tag() | false, binary(), [tag()]) -> {state(), [tag()]} | endtag().
+parse3_impl(State, Pre, Tag, Post, Result) ->
     case remove_space_if_standalone(Post) of
         {ok, NextPost} ->
             case remove_space_if_standalone(Pre) of
-                {ok, _} -> parse1(State, NextPost, ?COND(Tag =:= false, Result, [Tag | Result]));
-                error   -> parse1(State, Post, ?COND(Tag =:= false, [Pre | Result], [Tag, Pre | Result]))
+                {ok, _} -> parse1(State, NextPost, ?IIF(Tag =:= false, Result, [Tag | Result]));
+                error   -> parse1(State, Post, ?IIF(Tag =:= false, ?ADD(Pre, Result), [Tag | ?ADD(Pre, Result)]))
             end;
         error ->
-            parse1(State, Post, ?COND(Tag =:= false, [Pre | Result], [Tag, Pre | Result]))
+            parse1(State, Post, ?IIF(Tag =:= false, ?ADD(Pre, Result), [Tag | ?ADD(Pre, Result)]))
     end.
 
+%% @doc if input is the standalone, remove unnecessary white space from the beginning. othewise, return error.
+%%
+%% standalone means only include whilte space or tab or new line.
+-spec remove_space_if_standalone(binary()) -> {ok, binary()} | error.
 remove_space_if_standalone(<<X:8, Rest/binary>>) when X =:= $ ; X =:= $\t ->
     remove_space_if_standalone(Rest);
 remove_space_if_standalone(<<"\r\n", Rest/binary>>) ->
@@ -276,12 +335,12 @@ remove_space_if_standalone(_) ->
 %% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
 -spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | endtag().
 parse_loop(State0, Mark, Tag, Input, Result0) ->
-    case parse4(State0, Input, []) of
+    case parse3(State0, Input, []) of
         {endtag, {State, Tag, LastTagSize, Rest, Result1}} ->
             case Mark of
                 '#' -> Source = binary:part(Input, 0, byte_size(Input) - byte_size(Rest) - LastTagSize),
-                       parse4(State, Rest, [{'#', Tag, lists:reverse(Result1), Source} | Result0]);
-                '^' -> parse4(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
+                       parse3(State, Rest, [{'#', Tag, lists:reverse(Result1), Source} | Result0]);
+                '^' -> parse3(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
             end;
         {endtag, {_, OtherTag, _, _, _}} ->
             error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
@@ -291,18 +350,8 @@ parse_loop(State0, Mark, Tag, Input, Result0) ->
 
 %% @doc Endtag part of the `parse/1'
 -spec parse_jump(state(), Tag :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | endtag().
-parse_jump(#state{dirname = Dirname} = State0, Tag, NextBin, Result0) ->
-    Filename0 = <<Tag/binary, ".mustache">>,
-    Filename  = ?COND(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
-    case file:read_file(Filename) of
-        {ok, Bin} ->
-            case parse4(State0, Bin, Result0) of
-                {endtag, {_, Tag, _, _, _}} -> error({?PARSE_ERROR, {section_begin_tag_not_found, <<"#", Tag/binary>>}});
-                {State, Result}             -> parse4(State, NextBin, Result)
-            end;
-        _ ->
-            error({?FILE_ERROR, Filename})
-    end.
+parse_jump(#state{partials = Partials} = State0, Tag, NextBin, Result) ->
+    parse3(State0#state{partials = [Tag | Partials]}, NextBin, [{'>', Tag} | Result]).
 
 %% @doc Update delimiter part of the `parse/1'
 %%
@@ -312,7 +361,7 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
     case binary:match(ParseDelimiterBin, <<"=">>) of
         nomatch ->
             case [X || X <- binary:split(ParseDelimiterBin, <<" ">>, [global]), X =/= <<>>] of
-                [Start, Stop] -> parse4(State0#state{start = Start, stop = Stop}, NextBin, Result);
+                [Start, Stop] -> parse3(State0#state{start = Start, stop = Stop}, NextBin, Result);
                 _             -> error({?PARSE_ERROR, delimiters_may_not_contain_whitespaces})
             end;
         _ ->
@@ -355,13 +404,20 @@ to_iodata(Atom) when is_atom(Atom) ->
 to_iodata(X) ->
     X.
 
+%% @doc string or binary to binary
+-spec to_binary(binary() | string()) -> binary().
+to_binary(Bin) when is_binary(Bin) ->
+    Bin;
+to_binary(Str) when is_list(Str) ->
+    list_to_binary(Str).
+
 %% @doc HTML Escape
 -spec escape(iodata()) -> binary().
 escape(IoData) ->
     Bin = iolist_to_binary(IoData),
     << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
 
-%% @see escape/1
+%% @doc escape a character if needed.
 -spec escape_char(0..16#FFFF) -> binary().
 escape_char($<) -> <<"&lt;">>;
 escape_char($>) -> <<"&gt;">>;
@@ -370,8 +426,8 @@ escape_char($") -> <<"&quot;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc convert to {@link data_key/0} from binary.
--spec convert_keytype(binary(), [option()]) -> data_key().
-convert_keytype(KeyBin, Options) ->
+-spec convert_keytype(binary(), #?MODULE{}) -> data_key().
+convert_keytype(KeyBin, #?MODULE{options = Options}) ->
     case proplists:get_value(key_type, Options, string) of
         atom ->
             try binary_to_existing_atom(KeyBin, utf8) of
@@ -386,19 +442,22 @@ convert_keytype(KeyBin, Options) ->
 %% @doc fetch the value of the specified parent.child from {@link data/0}
 %%
 %% if key is ".", it means this.
--spec get_data_recursive(binary(), data(), Default :: term(), [option()]) -> term().
-get_data_recursive(<<".">>, Data, _Default, _Options) ->
+-spec get_data_recursive(binary(), data(), Default :: term(), #?MODULE{}) -> term().
+get_data_recursive(<<".">>, Data, _Default, _State) ->
 	Data;
-get_data_recursive(KeyBin, Data, Default, Options) ->
-	get_data_recursive_impl(binary:split(KeyBin, <<".">>, [global]), Data, Default, Options).
+get_data_recursive(KeyBin, Data, Default, State) ->
+	get_data_recursive_impl(binary:split(KeyBin, <<".">>, [global]), Data, Default, State).
 
 %% @see get_data_recursive/4
--spec get_data_recursive_impl([BinKey :: binary()], data(), Default :: term(), [option()]) -> term().
-get_data_recursive_impl([Key], Data, Default, Options) ->
-	get_data(convert_keytype(Key, Options), Data, Default);
-get_data_recursive_impl([Key | RestKey], Data, Default, Options) ->
-	ChildData = get_data(convert_keytype(Key, Options), Data, Default),
-	get_data_recursive_impl(RestKey, ChildData, Default, Options).
+-spec get_data_recursive_impl([BinKey :: binary()], data(), Default :: term(), #?MODULE{}) -> term().
+get_data_recursive_impl([Key], Data, Default, State) ->
+	get_data(convert_keytype(Key, State), Data, Default);
+get_data_recursive_impl([Key | RestKey], Data, Default, State) ->
+	ChildData = get_data(convert_keytype(Key, State), Data, Default),
+    case ChildData =:= Default of
+        true  -> ChildData;
+        false -> get_data_recursive_impl(RestKey, ChildData, Default, State)
+    end.
 
 %% @doc fetch the value of the specified key from {@link data/0}
 -spec get_data(data_key(), data(), Default :: term()) -> term().
