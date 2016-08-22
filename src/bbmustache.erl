@@ -350,10 +350,7 @@ escape_char($<) -> <<"&lt;">>;
 escape_char($>) -> <<"&gt;">>;
 escape_char($&) -> <<"&amp;">>;
 escape_char($") -> <<"&quot;">>;
-escape_char($') -> <<"&#39;">>;
-escape_char($/) -> <<"&#x2F;">>;
-escape_char($`) -> <<"&#x60;">>;
-escape_char($=) -> <<"&#x3D;">>;
+escape_char($') -> <<"&apos;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc convert to {@link data_key/0} from binary.
