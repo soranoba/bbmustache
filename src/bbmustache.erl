@@ -155,11 +155,11 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [escape(to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>))) | Result], Options);
+    compile_impl(T, Map, [escape(to_iodata(get_data_recursive(Key, Map, <<>>, Options))) | Result], Options);
 compile_impl([{'&', Key} | T], Map, Result, Options) ->
-    compile_impl(T, Map, [to_iodata(data_get(convert_keytype(Key, Options), Map, <<>>)) | Result], Options);
+    compile_impl(T, Map, [to_iodata(get_data_recursive(Key, Map, <<>>, Options)) | Result], Options);
 compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
-    Value = data_get(convert_keytype(Key, Options), Map, false),
+    Value = get_data_recursive(Key, Map, false, Options),
     case check_data_type(Value) of
         true                         -> compile_impl(T, Map, compile_impl(Tags, Value, Result, Options), Options);
         _ when is_list(Value)        -> compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, Options) end,
@@ -169,7 +169,7 @@ compile_impl([{'#', Key, Tags, Source} | T], Map, Result, Options) ->
         _                            -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options)
     end;
 compile_impl([{'^', Key, Tags} | T], Map, Result, Options) ->
-    Value = data_get(convert_keytype(Key, Options), Map, false),
+    Value = get_data_recursive(Key, Map, false, Options),
     case Value =:= [] orelse Value =:= false of
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, Options), Options);
         false -> compile_impl(T, Map, Result, Options)
@@ -366,19 +366,32 @@ convert_keytype(KeyBin, Options) ->
         binary -> KeyBin
     end.
 
+%% @doc fetch the value of the specified parent.child from {@link data/0}
+%%
+%% if key is ".", it means this.
+-spec get_data_recursive(binary(), data(), Default :: term(), [option()]) -> term().
+get_data_recursive(<<".">>, Data, _Default, _Options) ->
+	Data;
+get_data_recursive(KeyBin, Data, Default, Options) ->
+	get_data_recursive_impl(binary:split(KeyBin, <<".">>, [global]), Data, Default, Options).
+
+%% @see get_data_recursive/4
+-spec get_data_recursive_impl([BinKey :: binary()], data(), Default :: term(), [option()]) -> term().
+get_data_recursive_impl([Key], Data, Default, Options) ->
+	get_data(convert_keytype(Key, Options), Data, Default);
+get_data_recursive_impl([Key | RestKey], Data, Default, Options) ->
+	ChildData = get_data(convert_keytype(Key, Options), Data, Default),
+	get_data_recursive_impl(RestKey, ChildData, Default, Options).
+
 %% @doc fetch the value of the specified key from {@link data/0}
--spec data_get(data_key(), data(), Default :: term()) -> term().
+-spec get_data(data_key(), data(), Default :: term()) -> term().
 -ifdef(namespaced_types).
-data_get(Dot, Data, _Default) when Dot =:= "."; Dot =:= '.'; Dot =:= <<".">> ->
-    Data;
-data_get(Key, Map, Default) when is_map(Map) ->
+get_data(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default);
-data_get(Key, AssocList, Default) ->
+get_data(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -else.
-data_get(Dot, Data, _Default) when Dot =:= "."; Dot =:= '.'; Dot =:= <<".">> ->
-    Data;
-data_get(Key, AssocList, Default) ->
+get_data(Key, AssocList, Default) ->
     proplists:get_value(Key, AssocList, Default).
 -endif.
 
