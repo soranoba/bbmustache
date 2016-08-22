@@ -209,7 +209,7 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
 %% ATTENTION: The result is a list that is inverted.
 -spec parse2(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse2(State, [B1, B2], Result) ->
-    parse1(State, B2, [{'&', remove_space_from_edge(B1)} | Result]);
+    parse1(State, B2, [{'&', remove_spaces(B1)} | Result]);
 parse2(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
 
@@ -221,9 +221,9 @@ parse2(_, _, _) ->
 parse3(State, [B1, B2], Result) ->
     case remove_space_from_head(B1) of
         <<"&", Tag/binary>> ->
-            parse1(State, B2, [{'&', remove_space_from_edge(Tag)} | Result]);
+            parse1(State, B2, [{'&', remove_spaces(Tag)} | Result]);
         <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
-            parse_loop(State, ?COND(T =:= $#, '#', '^'), remove_space_from_edge(Tag), B2, Result);
+            parse_loop(State, ?COND(T =:= $#, '#', '^'), remove_spaces(Tag), B2, Result);
         <<"=", Tag0/binary>> ->
             Tag1 = remove_space_from_tail(Tag0),
             Size = byte_size(Tag1) - 1,
@@ -234,9 +234,9 @@ parse3(State, [B1, B2], Result) ->
         <<"!", _/binary>> ->
             parse1(State, B2, Result);
         <<"/", Tag/binary>> ->
-            {endtag, {State, remove_space_from_edge(Tag), byte_size(B1) + 4, B2, Result}};
+            {endtag, {State, remove_spaces(Tag), byte_size(B1) + 4, B2, Result}};
         <<">", Tag/binary>> ->
-            parse_jump(State, remove_space_from_edge(Tag), B2, Result);
+            parse_jump(State, remove_spaces(Tag), B2, Result);
         Tag ->
             parse1(State, B2, [{n, remove_space_from_tail(Tag)} | Result])
     end;
@@ -302,10 +302,10 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
             error({?PARSE_ERROR, delimiters_may_not_contain_equals})
     end.
 
-%% @doc Remove the space from the edge.
--spec remove_space_from_edge(binary()) -> binary().
-remove_space_from_edge(Bin) ->
-    remove_space_from_tail(remove_space_from_head(Bin)).
+%% @doc Remove the spaces.
+-spec remove_spaces(binary()) -> binary().
+remove_spaces(Bin) ->
+	<< <<X:8>> || <<X:8>> <= Bin, X =/= $ >>.
 
 %% @doc Remove the space from the head.
 -spec remove_space_from_head(binary()) -> binary().
