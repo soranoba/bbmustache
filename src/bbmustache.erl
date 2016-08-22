@@ -197,21 +197,18 @@ parse(State, Bin) ->
 %% ATTENTION: The result is a list that is inverted.
 -spec parse1(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
-    case binary:split(Bin, Start) of
-        [B1]                     -> {State, [B1 | Result]};
-        [B1, <<"{", B2/binary>>] -> parse2(State, binary:split(B2, <<"}", Stop/binary>>), [B1 | Result]);
-        [B1, B2]                 -> parse3(State, binary:split(B2, Stop),                 [B1 | Result])
+    case binary:match(Bin, [Start, <<"\n">>]) of
+        nomatch -> {State, [Bin | Result]};
+        {S, L}  ->
+            Pos = S + L,
+            B2  = binary:part(Bin, Pos, byte_size(Bin) - Pos),
+            case binary:at(Bin, S) of
+                $\n -> parse1(State, B2, [binary:part(Bin, 0, Pos) | Result]); % \n
+                _   ->
+                    StopSeparator = ?COND(binary:first(B2) =:= ${, <<"}", Stop/binary>>, Stop),
+                    parse3(State, binary:split(B2, StopSeparator), [binary:part(Bin, 0, S) | Result])
+            end
     end.
-
-%% @doc Part of the `parse/1'
-%%
-%% 2nd Argument: [TagBinary(may exist unnecessary spaces to the end), RestBinary]
-%% ATTENTION: The result is a list that is inverted.
--spec parse2(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
-parse2(State, [B1, B2], Result) ->
-    parse1(State, B2, [{'&', remove_spaces(B1)} | Result]);
-parse2(_, _, _) ->
-    error({?PARSE_ERROR, unclosed_tag}).
 
 %% @doc Part of the `parse/1'
 %%
@@ -220,7 +217,7 @@ parse2(_, _, _) ->
 -spec parse3(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse3(State, [B1, B2], Result) ->
     case remove_space_from_head(B1) of
-        <<"&", Tag/binary>> ->
+        <<T, Tag/binary>> when T =:= $&; T =:= ${ ->
             parse1(State, B2, [{'&', remove_spaces(Tag)} | Result]);
         <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
             parse_loop(State, ?COND(T =:= $#, '#', '^'), remove_spaces(Tag), B2, Result);
@@ -232,27 +229,47 @@ parse3(State, [B1, B2], Result) ->
                 _                         -> error({?PARSE_ERROR, {unsupported_tag, <<"=", Tag0/binary>>}})
             end;
         <<"!", _/binary>> ->
-            parse1(State, B2, Result);
+            parse4(State, B2, Result);
         <<"/", Tag/binary>> ->
             {endtag, {State, remove_spaces(Tag), byte_size(B1) + 4, B2, Result}};
         <<">", Tag/binary>> ->
             parse_jump(State, remove_spaces(Tag), B2, Result);
         Tag ->
-            parse1(State, B2, [{n, remove_space_from_tail(Tag)} | Result])
+            parse1(State, B2, [{n, remove_spaces(Tag)} | Result])
     end;
 parse3(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
 
-%% @doc Part of the `parse/1'
-%%
-%% ATTENTION: The result is a list that is inverted.
--spec parse4(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
-parse4(State, <<"\r\n", Rest/binary>>, Result) ->
-    parse1(State, Rest, Result);
-parse4(State, <<"\n", Rest/binary>>, Result) ->
-    parse1(State, Rest, Result);
-parse4(State, Input, Result) ->
-    parse1(State, Input, Result).
+parse4(State, Post, [Tag, Pre | Result]) when is_tuple(Tag) ->
+    parse4_impl(State, Pre, Tag, Post, Result);
+parse4(State, Post, [Tag | Result]) when is_tuple(Tag) ->
+    parse4_impl(State, <<>>, Tag, Post, Result);
+parse4(State, Post, [Pre | Result]) ->
+    parse4_impl(State, Pre, false, Post, Result);
+parse4(State, Post, Result) ->
+    parse4_impl(State, <<>>, false, Post, Result).
+
+parse4_impl(State, Pre, Tag, Post, Result) ->
+    case remove_space_if_standalone(Post) of
+        {ok, NextPost} ->
+            case remove_space_if_standalone(Pre) of
+                {ok, _} -> parse1(State, NextPost, ?COND(Tag =:= false, Result, [Tag | Result]));
+                error   -> parse1(State, Post, ?COND(Tag =:= false, [Pre | Result], [Tag, Pre | Result]))
+            end;
+        error ->
+            parse1(State, Post, ?COND(Tag =:= false, [Pre | Result], [Tag, Pre | Result]))
+    end.
+
+remove_space_if_standalone(<<X:8, Rest/binary>>) when X =:= $ ; X =:= $\t ->
+    remove_space_if_standalone(Rest);
+remove_space_if_standalone(<<"\r\n", Rest/binary>>) ->
+    {ok, Rest};
+remove_space_if_standalone(<<"\n", Rest/binary>>) ->
+    {ok, Rest};
+remove_space_if_standalone(X = <<>>) ->
+    {ok, X};
+remove_space_if_standalone(_) ->
+    error.
 
 %% @doc Loop processing part of the `parse/1'
 %%
