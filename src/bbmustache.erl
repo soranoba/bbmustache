@@ -7,7 +7,6 @@
 %%
 
 -module(bbmustache).
--include_lib("eunit/include/eunit.hrl").
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported API
@@ -205,7 +204,7 @@ compile_impl([{'>', Key, Indent} | T], Map, Result0, #?MODULE{partials = Partial
         undefined -> compile_impl(T, Map, Result0, State);
         PartialT  ->
             Indents = State#?MODULE.indents ++ [Indent],
-            Result1 = compile_impl(PartialT, Map, [Indents | Result0], State#?MODULE{indents = Indents}),
+            Result1 = compile_impl(PartialT, Map, [Indent | Result0], State#?MODULE{indents = Indents}),
             compile_impl(T, Map, Result1, State)
     end;
 compile_impl([B1 | [_|_] = T], Map, Result, #?MODULE{indents = Indents} = State) when Indents =/= [] ->
@@ -233,8 +232,6 @@ parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MOD
                 {ok, Input} ->
                     {State1, Data} = parse(State, Input),
                     parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]});
-                _ when Template#?MODULE.data =:= undefined ->
-                    error({?FILE_ERROR, Filename});
                 _ ->
                     parse_binary_impl(State, Template#?MODULE{partials = [{P, []}]})
             end
@@ -293,7 +290,7 @@ parse2(State, [B1, B2, B3], Result) ->
         <<"!", _/binary>> ->
             parse3(State, B3, [B1 | Result]);
         <<"/", Tag/binary>> ->
-            {endtag, {State, remove_spaces(Tag), byte_size(B2) + 4, B3, ?ADD(B1, Result)}};
+            {endtag, {State, remove_spaces(Tag), byte_size(B2) + 4, B3, [B1 | Result]}};
         <<">", Tag/binary>> ->
             parse_jump(State, remove_spaces(Tag), B3, [B1 | Result]);
         Tag ->
@@ -306,71 +303,26 @@ parse2(_, _, _) ->
 %%
 %% it is end processing of tag that need to be considered the standalone.
 -spec parse3(#state{}, binary(), [tag()]) -> {state(), [tag()]} | endtag().
-parse3(#state{standalone = false} = State, Post, Result) ->
-    parse1(State, Post, Result);
-parse3(State, Post, [Tag, Pre | Result]) when is_tuple(Tag), is_binary(Pre) ->
-    parse3_impl(State, Pre, Tag, Post, Result);
-parse3(State, Post, [Tag | Result]) when is_tuple(Tag) ->
-    parse3_impl(State, <<>>, Tag, Post, Result);
-parse3(State, Post, [Pre | Result]) ->
-    parse3_impl(State, Pre, false, Post, Result);
-parse3(State, Post, Result) ->
-    parse3_impl(State, <<>>, false, Post, Result).
-
--spec parse3_impl(#state{}, binary(), tag() | false, binary(), [tag()]) -> {state(), [tag()]} | endtag().
-parse3_impl(State0, Pre0, Tag, Post0, Result0) ->
-    {State, Post, Result} = standalone(State0, Pre0, Tag, Post0, Result0),
-    parse1(State, Post, Result).
-
-standalone(#state{standalone = false} = State, Pre, Tag, Post, Result) ->
-    {State, Post, ?IIF(Tag =:= false, ?ADD(Pre, Result), [Tag | ?ADD(Pre, Result)])};
-standalone(State0, Pre0, Tag, Post0, Result0) ->
-    case byte_size(Pre0) > 0 andalso binary:last(Pre0) =:= $\n of
-        true  -> Pre1 = <<>>, Result = [Pre0 | Result0];
-        false -> Pre1 = Pre0, Result = Result0
-    end,
-    case remove_space_if_standalone(Post0) of
-        {ok, Post} ->
-            case remove_space_if_standalone(Pre1) of
-                {ok, <<>>} ->
-                    {State0, Post, ?IIF(Tag =:= false, Result, [Tag | Result])};
-                _->
-                    {State0#state{standalone = false}, Post0, ?IIF(Tag =:= false, ?ADD(Pre1, Result), [Tag | ?ADD(Pre1, Result)])}
-            end;
-        error ->
-            {State0#state{standalone = false}, Post0, ?IIF(Tag =:= false, ?ADD(Pre1, Result), [Tag | ?ADD(Pre1, Result)])}
-    end.
-
-%% @doc if input is the standalone, remove unnecessary white space from the beginning. othewise, return error.
-%%
-%% standalone means only include whilte space or tab or new line.
--spec remove_space_if_standalone(binary()) -> {ok, binary()} | error.
-remove_space_if_standalone(<<X:8, Rest/binary>>) when X =:= $ ; X =:= $\t ->
-    remove_space_if_standalone(Rest);
-remove_space_if_standalone(<<"\r\n", Rest/binary>>) ->
-    {ok, Rest};
-remove_space_if_standalone(<<"\n", Rest/binary>>) ->
-    {ok, Rest};
-remove_space_if_standalone(X = <<>>) ->
-    {ok, X};
-remove_space_if_standalone(_) ->
-    error.
+parse3(State0, Post0, [Tag | Result0]) when is_tuple(Tag) ->
+    {State1, _, Post1, Result1} = standalone(State0, Post0, Result0),
+    parse1(State1, Post1, [Tag | Result1]);
+parse3(State0, Post0, Result0) ->
+    {State1, _, Post1, Result1} = standalone(State0, Post0, Result0),
+    parse1(State1, Post1, Result1).
 
 %% @doc Loop processing part of the `parse/1'
 %%
 %% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
 -spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | endtag().
 parse_loop(State0, Mark, Tag, Input0, Result0) ->
-    [Pre | Result1] = ?IIF(Result0 =:= [], [<<>> | Result0], Result0),
-    {State1, Input1, Result2} = standalone(State0, Pre, false, Input0, Result1),
+    {State1, _, Input1, Result1} = standalone(State0, Input0, Result0),
     case parse1(State1, Input1, []) of
-        {endtag, {State2, Tag, LastTagSize, Rest, LoopResult0}} ->
-            [LoopPre | LoopResult] = ?IIF(LoopResult0 =:= [], [<<>> | LoopResult0], LoopResult0),
-            {State3, Rest1, LoopResult1} = standalone(State2, LoopPre, false, Rest, LoopResult),
+        {endtag, {State2, Tag, LastTagSize, Rest0, LoopResult0}} ->
+            {State3, _, Rest1, LoopResult1} = standalone(State2, Rest0, LoopResult0),
             case Mark of
                 '#' -> Source = binary:part(Input1, 0, byte_size(Input1) - byte_size(Rest1) - LastTagSize),
-                       parse3(State3, Rest, [{'#', Tag, lists:reverse(LoopResult1), Source} | Result2]);
-                '^' -> parse3(State3, Rest, [{'^', Tag, lists:reverse(LoopResult1)} | Result2])
+                       parse1(State3, Rest1, [{'#', Tag, lists:reverse(LoopResult1), Source} | Result1]);
+                '^' -> parse1(State3, Rest1, [{'^', Tag, lists:reverse(LoopResult1)} | Result1])
             end;
         {endtag, {_, OtherTag, _, _, _}} ->
             error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
@@ -400,6 +352,10 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
             error({?PARSE_ERROR, delimiters_may_not_contain_equals})
     end.
 
+%% @doc if it is standalone line, remove spaces from edge.
+-spec standalone(#state{}, binary(), [tag()]) -> {#state{}, StashPre :: binary(), Post :: binary(), [tag()]}.
+standalone(#state{standalone = false} = State, Post, [Pre | Result]) ->
+    {State, <<>>, Post, ?ADD(Pre, Result)};
 standalone(#state{standalone = false} = State, Post, Result) ->
     {State, <<>>, Post, Result};
 standalone(State, Post0, Result0) ->
@@ -407,7 +363,7 @@ standalone(State, Post0, Result0) ->
                          Pre0 when is_binary(Pre0) -> {Pre0, tl(Result0)};
                          _                         -> {<<>>, Result0}
                      end,
-    case remove_space_from_head(Pre) =:= <<>> andalso remove_space_from_head(Post0) of
+    case remove_indent_from_head(Pre) =:= <<>> andalso remove_indent_from_head(Post0) of
         <<"\r\n", Post1/binary>> ->
             {State, Pre, Post1, Result1};
         <<"\n", Post1/binary>> ->
@@ -415,7 +371,7 @@ standalone(State, Post0, Result0) ->
         <<>> ->
             {State, Pre, <<>>, Result1};
         _ ->
-            {State#state{standalone = false}, <<>>, Post0, Result0}
+            {State#state{standalone = false}, <<>>, Post0, ?ADD(Pre, Result1)}
     end.
 
 
@@ -428,6 +384,13 @@ remove_spaces(Bin) ->
 -spec remove_space_from_head(binary()) -> binary().
 remove_space_from_head(<<" ", Rest/binary>>) -> remove_space_from_head(Rest);
 remove_space_from_head(Bin)                  -> Bin.
+
+%% @doc Remove the indent from the head.
+-spec remove_indent_from_head(binary()) -> binary().
+remove_indent_from_head(<<X:8, Rest/binary>>) when X =:= $\t; X =:= $  ->
+    remove_indent_from_head(Rest);
+remove_indent_from_head(Bin) ->
+    Bin.
 
 %% @doc Remove the space from the tail.
 -spec remove_space_from_tail(binary()) -> binary().
