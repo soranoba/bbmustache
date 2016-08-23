@@ -11,7 +11,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SKIP_FILES, [
-                     "~lambdas.json"
+                     "~lambdas.json",
+                     "partials.json"
+                    ]).
+-define(SKIP_CASES, [
+                     {"sections.json", <<"Deeply Nested Contexts">>}
                     ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -40,8 +44,16 @@ spec_tests(JsonPath) ->
             ct:log("This test case did skip...");
         false ->
             {ok, JsonBin} = file:read_file(JsonPath),
-            JsonDec = jsone:decode(JsonBin, [{object_format, proplist}]),
-            Tests   = proplists:get_value(<<"tests">>, JsonDec),
+            JsonDec   = jsone:decode(JsonBin, [{object_format, proplist}]),
+            Tests0    = proplists:get_value(<<"tests">>, JsonDec),
+            SkipTests = proplists:get_all_values(Basename, ?SKIP_CASES),
+            Tests     = lists:foldl(
+                          fun(T, Acc) ->
+                                  case lists:member(proplists:get_value(<<"name">>, T), SkipTests) of
+                                      true  -> Acc;
+                                      false -> [T | Acc]
+                                  end
+                          end, [], lists:reverse(Tests0)),
             lists:foreach(fun spec_test/1, Tests)
     end.
 
@@ -52,10 +64,15 @@ spec_test(Assoc) ->
     Template = proplists:get_value(<<"template">>, Assoc),
     Partials = proplists:get_value(<<"partials">>, Assoc, []),
 
+    ok = clean_dir("."),
     ok = lists:foreach(fun write_file/1, Partials),
 
     ct:log("CASE: ~s", [Name]),
     ?assertEqual(Expected, bbmustache:render(Template, Data, [{key_type, binary}])).
+
+clean_dir(Dir) ->
+    lists:foreach(fun(F) -> file:delete(F) end,
+                  filelib:wildcard(filename:join(Dir, "*.mustache"))).
 
 write_file({PartialFilename, PartialData}) ->
     ok = file:write_file(<<PartialFilename/binary, ".mustache">>, PartialData).

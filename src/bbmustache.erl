@@ -7,6 +7,7 @@
 %%
 
 -module(bbmustache).
+-include_lib("eunit/include/eunit.hrl").
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported API
@@ -77,7 +78,8 @@
           dirname  = <<>>       :: file:filename_all(),
           start    = ?START_TAG :: binary(),
           stop     = ?STOP_TAG  :: binary(),
-          partials = []         :: [key()]
+          partials = []         :: [key()],
+          standalone = true     :: boolean()
         }).
 -type state() :: #state{}.
 
@@ -222,8 +224,10 @@ parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MOD
                 {ok, Input} ->
                     {State1, Data} = parse(State, Input),
                     parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]});
+                _ when Template#?MODULE.data =:= undefined ->
+                    error({?FILE_ERROR, Filename});
                 _ ->
-                    error({?FILE_ERROR, Filename})
+                    parse_binary_impl(State, Template#?MODULE{partials = [{P, []}]})
             end
     end;
 parse_binary_impl(State, Input) ->
@@ -252,7 +256,7 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
             Pos = S + L,
             B2  = binary:part(Bin, Pos, byte_size(Bin) - Pos),
             case binary:at(Bin, S) of
-                $\n -> parse1(State, B2, ?ADD(binary:part(Bin, 0, Pos), Result)); % \n
+                $\n -> parse1(State#state{standalone = true}, B2, ?ADD(binary:part(Bin, 0, Pos), Result)); % \n
                 _   ->
                     StopSeparator = ?IIF(binary:first(B2) =:= ${, <<"}", Stop/binary>>, Stop),
                     parse2(State, [binary:part(Bin, 0, S) | binary:split(B2, StopSeparator)], Result)
@@ -267,7 +271,7 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
 parse2(State, [B1, B2, B3], Result) ->
     case remove_space_from_head(B2) of
         <<T, Tag/binary>> when T =:= $&; T =:= ${ ->
-            parse1(State, B3, [{'&', remove_spaces(Tag)} | ?ADD(B1, Result)]);
+            parse1(State#state{standalone = false}, B3, [{'&', remove_spaces(Tag)} | ?ADD(B1, Result)]);
         <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
             parse_loop(State, ?IIF(T =:= $#, '#', '^'), remove_spaces(Tag), B3, [B1 | Result]);
         <<"=", Tag0/binary>> ->
@@ -284,7 +288,7 @@ parse2(State, [B1, B2, B3], Result) ->
         <<">", Tag/binary>> ->
             parse_jump(State, remove_spaces(Tag), B3, [B1 | Result]);
         Tag ->
-            parse1(State, B3, [{n, remove_spaces(Tag)} | ?ADD(B1, Result)])
+            parse1(State#state{standalone = false}, B3, [{n, remove_spaces(Tag)} | ?ADD(B1, Result)])
     end;
 parse2(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
@@ -293,7 +297,9 @@ parse2(_, _, _) ->
 %%
 %% it is end processing of tag that need to be considered the standalone.
 -spec parse3(#state{}, binary(), [tag()]) -> {state(), [tag()]} | endtag().
-parse3(State, Post, [Tag, Pre | Result]) when is_tuple(Tag) ->
+parse3(#state{standalone = false} = State, Post, Result) ->
+    parse1(State, Post, Result);
+parse3(State, Post, [Tag, Pre | Result]) when is_tuple(Tag), is_binary(Pre) ->
     parse3_impl(State, Pre, Tag, Post, Result);
 parse3(State, Post, [Tag | Result]) when is_tuple(Tag) ->
     parse3_impl(State, <<>>, Tag, Post, Result);
@@ -302,17 +308,28 @@ parse3(State, Post, [Pre | Result]) ->
 parse3(State, Post, Result) ->
     parse3_impl(State, <<>>, false, Post, Result).
 
-%% @see parse3/3
 -spec parse3_impl(#state{}, binary(), tag() | false, binary(), [tag()]) -> {state(), [tag()]} | endtag().
-parse3_impl(State, Pre, Tag, Post, Result) ->
-    case remove_space_if_standalone(Post) of
-        {ok, NextPost} ->
-            case remove_space_if_standalone(Pre) of
-                {ok, _} -> parse1(State, NextPost, ?IIF(Tag =:= false, Result, [Tag | Result]));
-                error   -> parse1(State, Post, ?IIF(Tag =:= false, ?ADD(Pre, Result), [Tag | ?ADD(Pre, Result)]))
+parse3_impl(State0, Pre0, Tag, Post0, Result0) ->
+    {State, Post, Result} = standalone(State0, Pre0, Tag, Post0, Result0),
+    parse1(State, Post, Result).
+
+standalone(#state{standalone = false} = State, Pre, Tag, Post, Result) ->
+    {State, Post, ?IIF(Tag =:= false, ?ADD(Pre, Result), [Tag | ?ADD(Pre, Result)])};
+standalone(State0, Pre0, Tag, Post0, Result0) ->
+    case byte_size(Pre0) > 0 andalso binary:last(Pre0) =:= $\n of
+        true  -> Pre1 = <<>>, Result = [Pre0 | Result0];
+        false -> Pre1 = Pre0, Result = Result0
+    end,
+    case remove_space_if_standalone(Post0) of
+        {ok, Post} ->
+            case remove_space_if_standalone(Pre1) of
+                {ok, <<>>} ->
+                    {State0, Post, ?IIF(Tag =:= false, Result, [Tag | Result])};
+                _->
+                    {State0#state{standalone = false}, Post0, ?IIF(Tag =:= false, ?ADD(Pre1, Result), [Tag | ?ADD(Pre1, Result)])}
             end;
         error ->
-            parse1(State, Post, ?IIF(Tag =:= false, ?ADD(Pre, Result), [Tag | ?ADD(Pre, Result)]))
+            {State0#state{standalone = false}, Post0, ?IIF(Tag =:= false, ?ADD(Pre1, Result), [Tag | ?ADD(Pre1, Result)])}
     end.
 
 %% @doc if input is the standalone, remove unnecessary white space from the beginning. othewise, return error.
@@ -334,13 +351,17 @@ remove_space_if_standalone(_) ->
 %%
 %% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
 -spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | endtag().
-parse_loop(State0, Mark, Tag, Input, Result0) ->
-    case parse3(State0, Input, []) of
-        {endtag, {State, Tag, LastTagSize, Rest, Result1}} ->
+parse_loop(State0, Mark, Tag, Input0, Result0) ->
+    [Pre | Result1] = ?IIF(Result0 =:= [], [<<>> | Result0], Result0),
+    {State1, Input1, Result2} = standalone(State0, Pre, false, Input0, Result1),
+    case parse1(State1, Input1, []) of
+        {endtag, {State2, Tag, LastTagSize, Rest, LoopResult0}} ->
+            [LoopPre | LoopResult] = ?IIF(LoopResult0 =:= [], [<<>> | LoopResult0], LoopResult0),
+            {State3, Rest1, LoopResult1} = standalone(State2, LoopPre, false, Rest, LoopResult),
             case Mark of
-                '#' -> Source = binary:part(Input, 0, byte_size(Input) - byte_size(Rest) - LastTagSize),
-                       parse3(State, Rest, [{'#', Tag, lists:reverse(Result1), Source} | Result0]);
-                '^' -> parse3(State, Rest, [{'^', Tag, lists:reverse(Result1)} | Result0])
+                '#' -> Source = binary:part(Input1, 0, byte_size(Input1) - byte_size(Rest1) - LastTagSize),
+                       parse3(State3, Rest, [{'#', Tag, lists:reverse(LoopResult1), Source} | Result2]);
+                '^' -> parse3(State3, Rest, [{'^', Tag, lists:reverse(LoopResult1)} | Result2])
             end;
         {endtag, {_, OtherTag, _, _, _}} ->
             error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
