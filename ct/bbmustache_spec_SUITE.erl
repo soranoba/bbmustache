@@ -11,8 +11,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SKIP_FILES, [
-                     "~lambdas.json",
-                     "partials.json"
+                     "~lambdas.json"
                     ]).
 -define(SKIP_CASES, [
                      {"sections.json", <<"Deeply Nested Contexts">>}

@@ -59,14 +59,15 @@
                 | {'&', key()}
                 | {'#', key(), [tag()], source()}
                 | {'^', key(), [tag()]}
-                | {'>', key()}
+                | {'>', key(), Indent :: source()}
                 | binary(). % plain text
 
 -record(?MODULE,
         {
           data          :: [tag()],
           partials = [] :: [{key(), [tag()]}],
-          options  = [] :: [option()]
+          options  = [] :: [option()],
+          indents  = [] :: [binary()]
         }).
 
 -opaque template() :: #?MODULE{}.
@@ -132,7 +133,7 @@ parse_file(Filename) ->
     case to_binary(filename:extension(Filename)) of
         <<".mustache">> = Ext ->
             Partials = [Key = to_binary(filename:basename(Filename, Ext))],
-            parse_binary_impl(State#state{partials = Partials}, #?MODULE{data = [{'>', Key}]});
+            parse_binary_impl(State#state{partials = Partials}, #?MODULE{data = [{'>', Key, <<>>}]});
         _ ->
             case file:read_file(Filename) of
                 {ok, Bin} -> parse_binary_impl(State, Bin);
@@ -199,14 +200,22 @@ compile_impl([{'^', Key, Tags} | T], Map, Result, State) ->
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State);
         false -> compile_impl(T, Map, Result, State)
     end;
-compile_impl([{'>', Key} | T], Map, Result0, #?MODULE{partials = Partials} = State) ->
+compile_impl([{'>', Key, Indent} | T], Map, Result0, #?MODULE{partials = Partials} = State) ->
     case proplists:get_value(Key, Partials) of
         undefined -> compile_impl(T, Map, Result0, State);
         PartialT  ->
-            compile_impl(T, Map, compile_impl(PartialT, Map, Result0, State), State)
+            Indents = State#?MODULE.indents ++ [Indent],
+            Result1 = compile_impl(PartialT, Map, [Indents | Result0], State#?MODULE{indents = Indents}),
+            compile_impl(T, Map, Result1, State)
+    end;
+compile_impl([B1 | [_|_] = T], Map, Result, #?MODULE{indents = Indents} = State) when Indents =/= [] ->
+    %% NOTE: indent of partials
+    case byte_size(B1) > 0 andalso binary:last(B1) of
+        $\n -> compile_impl(T, Map, [Indents, B1 | Result], State);
+        _   -> compile_impl(T, Map, [B1 | Result], State)
     end;
 compile_impl([Bin | T], Map, Result, State) ->
-    compile_impl(T, Map, ?ADD(Bin, Result), State).
+    compile_impl(T, Map, [Bin | Result], State).
 
 %% @see parse_binary/1
 -spec parse_binary_impl(state(), Input | #?MODULE{}) -> template() when
@@ -371,8 +380,10 @@ parse_loop(State0, Mark, Tag, Input0, Result0) ->
 
 %% @doc Endtag part of the `parse/1'
 -spec parse_jump(state(), Tag :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | endtag().
-parse_jump(#state{partials = Partials} = State0, Tag, NextBin, Result) ->
-    parse3(State0#state{partials = [Tag | Partials]}, NextBin, [{'>', Tag} | Result]).
+parse_jump(State0, Tag, NextBin0, Result0) ->
+    {State1, Indent, NextBin1, Result1} = standalone(State0, NextBin0, Result0),
+    State2 = State1#state{partials = [Tag | State1#state.partials]},
+    parse1(State2, NextBin1, [{'>', Tag, Indent} | Result1]).
 
 %% @doc Update delimiter part of the `parse/1'
 %%
@@ -388,6 +399,25 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
         _ ->
             error({?PARSE_ERROR, delimiters_may_not_contain_equals})
     end.
+
+standalone(#state{standalone = false} = State, Post, Result) ->
+    {State, <<>>, Post, Result};
+standalone(State, Post0, Result0) ->
+    {Pre, Result1} = case Result0 =/= [] andalso hd(Result0) of
+                         Pre0 when is_binary(Pre0) -> {Pre0, tl(Result0)};
+                         _                         -> {<<>>, Result0}
+                     end,
+    case remove_space_from_head(Pre) =:= <<>> andalso remove_space_from_head(Post0) of
+        <<"\r\n", Post1/binary>> ->
+            {State, Pre, Post1, Result1};
+        <<"\n", Post1/binary>> ->
+            {State, Pre, Post1, Result1};
+        <<>> ->
+            {State, Pre, <<>>, Result1};
+        _ ->
+            {State#state{standalone = false}, <<>>, Post0, Result0}
+    end.
+
 
 %% @doc Remove the spaces.
 -spec remove_spaces(binary()) -> binary().
