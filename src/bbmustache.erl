@@ -170,7 +170,7 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 %% @doc {@link compile/2}
 %%
 %% ATTENTION: The result is a list that is inverted.
--spec compile_impl(Template :: [tag()], data(), Result :: iodata(), #?MODULE{}) -> iodata().
+-spec compile_impl(Template :: [tag()], data(), Result :: iodata(), template()) -> iodata().
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Key} | T], Map, Result, State) ->
@@ -217,7 +217,7 @@ compile_impl([Bin | T], Map, Result, State) ->
     compile_impl(T, Map, [Bin | Result], State).
 
 %% @see parse_binary/1
--spec parse_binary_impl(state(), Input | #?MODULE{}) -> template() when
+-spec parse_binary_impl(state(), Input | template()) -> template() when
       Input :: binary().
 parse_binary_impl(#state{partials = []}, Template = #?MODULE{}) ->
     Template;
@@ -440,7 +440,7 @@ escape_char($") -> <<"&quot;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc convert to {@link data_key/0} from binary.
--spec convert_keytype(binary(), #?MODULE{}) -> data_key().
+-spec convert_keytype(binary(), template()) -> data_key().
 convert_keytype(KeyBin, #?MODULE{options = Options}) ->
     case proplists:get_value(key_type, Options, string) of
         atom ->
@@ -456,14 +456,14 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 %% @doc fetch the value of the specified parent.child from {@link data/0}
 %%
 %% if key is ".", it means this.
--spec get_data_recursive(binary(), data(), Default :: term(), #?MODULE{}) -> term().
+-spec get_data_recursive(binary(), data(), Default :: term(), template()) -> term().
 get_data_recursive(<<".">>, Data, _Default, _State) ->
 	Data;
 get_data_recursive(KeyBin, Data, Default, State) ->
 	get_data_recursive_impl(binary:split(KeyBin, <<".">>, [global]), Data, Default, State).
 
 %% @see get_data_recursive/4
--spec get_data_recursive_impl([BinKey :: binary()], data(), Default :: term(), #?MODULE{}) -> term().
+-spec get_data_recursive_impl([BinKey :: binary()], data(), Default :: term(), template()) -> term().
 get_data_recursive_impl([Key], Data, Default, State) ->
 	get_data(convert_keytype(Key, State), Data, Default);
 get_data_recursive_impl([Key | RestKey], Data, Default, State) ->

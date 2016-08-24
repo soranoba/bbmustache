@@ -34,7 +34,7 @@ specs(Config) ->
             end,
     %% NOTE: priv_dir did write partial files.
     ok = file:set_cwd(?config(priv_dir, Config)),
-    lists:foreach(fun spec_tests/1, Jsons).
+    lists:foreach(fun ?MODULE:spec_tests/1, Jsons).
 
 spec_tests(JsonPath) ->
     ct:log("---- ~s -----", [Basename = filename:basename(JsonPath)]),
@@ -53,7 +53,7 @@ spec_tests(JsonPath) ->
                                       false -> [T | Acc]
                                   end
                           end, [], lists:reverse(Tests0)),
-            lists:foreach(fun spec_test/1, Tests)
+            lists:foreach(fun ?MODULE:spec_test/1, Tests)
     end.
 
 spec_test(Assoc) ->
@@ -64,7 +64,7 @@ spec_test(Assoc) ->
     Partials = proplists:get_value(<<"partials">>, Assoc, []),
 
     ok = clean_dir("."),
-    ok = lists:foreach(fun write_file/1, Partials),
+    ok = lists:foreach(fun ?MODULE:write_file/1, Partials),
 
     ct:log("CASE: ~s", [Name]),
     ?assertEqual(Expected, bbmustache:render(Template, Data, [{key_type, binary}])).
@@ -74,4 +74,6 @@ clean_dir(Dir) ->
                   filelib:wildcard(filename:join(Dir, "*.mustache"))).
 
 write_file({PartialFilename, PartialData}) ->
-    ok = file:write_file(<<PartialFilename/binary, ".mustache">>, PartialData).
+    ok = file:write_file(<<PartialFilename/binary, ".mustache">>, PartialData);
+write_file(_) ->
+    ok.
