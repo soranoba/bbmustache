@@ -1,0 +1,22 @@
+# Benchmarks
+
+|Library|Time  |
+|:------|:-----|
+{{# benches }}
+|{{ library }} | {{ result }} |
+{{/ benches }}
+
+# Check the reference implementation
+
+{{# spec_files }}
+
+## {{ spec }}
+https://github.com/mustache/spec/tree/v1.1.3/specs/{{ spec }}.yml
+
+|    |{{# libraries }}{{ library }}|{{/ libraries }}
+|:---|{{# libraries }}:------------|{{/ libraries }}
+{{# tests }}
+|{{ test }}|{{# results }}{{# result }}:white_check_mark:{{/ result }}|{{/ results }}
+{{/ tests }}
+
+{{/ spec_files }}

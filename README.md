@@ -125,7 +125,7 @@ The behavior when given the other types, it is undefined.
 ```
 
 ### More information
-Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.<br />
+Please refer to [the man page](http://mustache.github.io/mustache.5.html) and [the spec](https://github.com/mustache/spec) of mustache as the need arises.<br />
 `bbmustache` supports all of the syntax that is described in it.<br />
 
 If you want more information regarding the use of `bbmustache`, please see the `bbmustache`'s [document](doc).
@@ -158,15 +158,8 @@ If you want more information regarding the use of `bbmustache`, please see the `
 - Lambda expression is included wasted processing.
  - Because it is optimized to `parse_string/1` + `compile/2`.
 
-## Simple Benchmark
-
-||[moyombo/mustache.erl](https://github.com/mojombo/mustache.erl)|[soranoba/bbmustache](https://github.com/soranoba/bbmustache)|
-|:--|:---|:---|
-|score (time) |1016414 |33001|
-
-- [Benchmark script](https://gist.github.com/soranoba/6c4bf489714618366a1c)
-
-In this case, it is 30 times faster than moyombo/mustache.erl
+## Comparison with other libraries
+[Benchmarks and check the reference implementation](benchmarks/result.md)
 
 ## Contribute
 Pull request is welcome =D
