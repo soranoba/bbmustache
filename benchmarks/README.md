@@ -2,8 +2,8 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 82497 |
-|mustache.erl | 1011840 |
+|bbmustache | 78943 |
+|mustache.erl | 1017973 |
 
 # Check the reference implementation
 

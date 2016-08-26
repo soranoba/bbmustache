@@ -83,52 +83,10 @@ Associative array
 <<"hoge">>
 ```
 
-### Undocumented function
-Although present in many of the implementation, there is a function that does not exist in the document of the mustache.<br />
-The `bbmustache` corresponds as much as possible to it.
-
-#### Render plain lists
-If you specify the dot as a key, it points to this function.
-
-```erlang
-%% template.mustache
-{{#mylist}}
-  escape
-    {{.}}
-  unescape
-    {{{.}}}
-{{/mylist}}
-
-%% script
-1> bbmustache:compile(bbmustache:parse_file("template.mustache"), #{"mylist" => ["<b>1</b>", "<b>2</b>", "<b>3</b>"]}).
-<<"  escape\n    &lt;b&gt;1&lt;&#x2F;b&gt;\n  unescape\n    <b>1</b>\n  escape\n    &lt;b&gt;2&lt;&#x2F;b&gt;\n  unescape\n   "...>>
-
-%% result
-  escape
-    &lt;b&gt;1&lt;&#x2F;b&gt;
-  unescape
-    <b>1</b>
-  escape
-    &lt;b&gt;2&lt;&#x2F;b&gt;
-  unescape
-    <b>2</b>
-  escape
-    &lt;b&gt;3&lt;&#x2F;b&gt;
-  unescape
-    <b>3</b>
-```
-However, the types of correspond is only these.<br />
-The behavior when given the other types, it is undefined.
-
-```erlang
-[integer() | float() | binary() | string() | atom()]
-```
-
 ### More information
 Please refer to [the man page](http://mustache.github.io/mustache.5.html) and [the spec](https://github.com/mustache/spec) of mustache as the need arises.<br />
-`bbmustache` supports all of the syntax that is described in it.<br />
 
-If you want more information regarding the use of `bbmustache`, please see the `bbmustache`'s [document](doc).
+Please see [this](benchmarks/README.md) for a list of features that bbmustache supports.
 
 ## FAQ
 
@@ -159,7 +117,7 @@ If you want more information regarding the use of `bbmustache`, please see the `
  - Because it is optimized to `parse_string/1` + `compile/2`.
 
 ## Comparison with other libraries
-[Benchmarks and check the reference implementation](benchmarks/result.md)
+[Benchmarks and check the reference implementation](benchmarks/README.md)
 
 ## Contribute
 Pull request is welcome =D

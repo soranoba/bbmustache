@@ -2,8 +2,9 @@
 %%
 %% @doc Binary pattern match Based Mustach template engine for Erlang/OTP.
 %%
-%% This library support all of mustache syntax. <br />
-%% Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
+%% Please refer to [the man page](http://mustache.github.io/mustache.5.html) and [the spec](https://github.com/mustache/spec) of mustache as the need arises.<br />
+%%
+%% Please see [this](../benchmarks/README.md) for a list of features that bbmustache supports.
 %%
 
 -module(bbmustache).
@@ -40,6 +41,13 @@
 -define(STOP_TAG,  <<"}}">>).
 
 -type key()    :: binary().
+%% Key MUST be a non-whitespace character sequence NOT containing the current closing delimiter. <br />
+%%
+%% In addition, `.' have a special meaning. <br />
+%% (1) `parent.child' ... find the child in the parent. <br />
+%% (2) `.' ... It means this. However, the type of correspond is only `[integer() | float() | binary() | string() | atom()]'. Otherwise, the behavior is undefined.
+%%
+
 -type source() :: binary().
 %% If you use lamda expressions, the original text is necessary.
 %%
@@ -54,6 +62,7 @@
 %% NOTE:
 %%   Since the binary reference is used internally, it is not a capacitively large waste.
 %%   However, the greater the number of tags used, it should use the wasted memory.
+
 -type tag()    :: {n,   key()}
                 | {'&', key()}
                 | {'#', key(), [tag()], source()}
@@ -153,7 +162,7 @@ compile(Template, Data) ->
 %% <<"Alice">>
 %% '''
 %% Data support assoc list or maps (OTP17 or later). <br />
-%% All key in assoc list or maps must be same type.
+%% All key in assoc list or maps MUST be same type.
 -spec compile(template(), data(), [option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
     case check_data_type(Data) of

@@ -23,7 +23,7 @@ main(_) ->
     [io:format("    ~s~n", [Json]) || Json <- Jsons],
     Result0 = main1(Jsons, []),
     Result  = Result0 ++ [{<<"benches">>, bench_main()}],
-    ok = file:write_file("../result.md",
+    ok = file:write_file("../README.md",
                          bbmustache:compile(bbmustache:parse_file("../output.mustache"), Result, [{key_type, binary}])).
 
 bench_main() ->
