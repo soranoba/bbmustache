@@ -13,8 +13,10 @@ Copyright (c) 2015 Hinagiku Soranoba All Rights Reserved.
 <a name="description"></a>
 
 ## Description ##
-This library support all of mustache syntax. <br />
-Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.
+
+Please refer to [the man page](http://mustache.github.io/mustache.5.html) and [the spec](https://github.com/mustache/spec) of mustache as the need arises.<br />
+
+Please see [this](../benchmarks/README.md) for a list of features that bbmustache supports.
 
 <a name="types"></a>
 
@@ -111,7 +113,7 @@ Embed the data in the template.
 ```
 
 Data support assoc list or maps (OTP17 or later). <br />
-All key in assoc list or maps must be same type.
+All key in assoc list or maps MUST be same type.
 
 <a name="parse_binary-1"></a>
 

@@ -27,8 +27,13 @@ eunit:
 edoc:
 	@./rebar3 as dev edoc
 
-start: compile
-	@ERL_LIBS=$(LIBS) erl +stbt db +K true -pz ebin -s reloader -eval 'erlang:display(application:ensure_all_started($(APP))).'
+start:
+	@./rebar3 as dev shell
 
 dialyze:
 	@./rebar3 dialyzer
+
+bench:
+	@./rebar3 as test compile
+	@./rebar3 as bench compile
+	@./benchmarks/bench.escript
