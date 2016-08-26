@@ -1,11 +1,13 @@
 # Benchmarks
+[benchmark script](bench.escript)
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 78943 |
-|mustache.erl | 1017973 |
+|bbmustache | 78062 |
+|mustache.erl | 1016434 |
 
 # Check the reference implementation
+:warning: For libraries other than bbmustache, there is a possibility that there is a miss.
 
 
 ## comments
@@ -53,7 +55,7 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/interpolation.yml
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
 |No Interpolation|:white_check_mark:|:white_check_mark:|
-|Basic Interpolation|:white_check_mark:||
+|Basic Interpolation|:white_check_mark:|:white_check_mark:|
 |HTML Escaping|:white_check_mark:||
 |Triple Mustache|:white_check_mark:|:white_check_mark:|
 |Ampersand|:white_check_mark:|:white_check_mark:|
@@ -73,13 +75,14 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/interpolation.yml
 |Dotted Names - Broken Chains|:white_check_mark:||
 |Dotted Names - Broken Chain Resolution|:white_check_mark:||
 |Dotted Names - Initial Resolution|:white_check_mark:||
-|Interpolation - Surrounding Whitespace|:white_check_mark:||
+|Dotted Names - Context Precedence|:white_check_mark:||
+|Interpolation - Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
 |Triple Mustache - Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
 |Ampersand - Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
-|Interpolation - Standalone|:white_check_mark:||
+|Interpolation - Standalone|:white_check_mark:|:white_check_mark:|
 |Triple Mustache - Standalone|:white_check_mark:|:white_check_mark:|
 |Ampersand - Standalone|:white_check_mark:|:white_check_mark:|
-|Interpolation With Padding|:white_check_mark:||
+|Interpolation With Padding|:white_check_mark:|:white_check_mark:|
 |Triple Mustache With Padding|:white_check_mark:|:white_check_mark:|
 |Ampersand With Padding|:white_check_mark:|:white_check_mark:|
 
@@ -94,7 +97,7 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/inverted.yml
 |Context|:white_check_mark:|:white_check_mark:|
 |List|:white_check_mark:|:white_check_mark:|
 |Empty List|:white_check_mark:|:white_check_mark:|
-|Doubled|:white_check_mark:||
+|Doubled|:white_check_mark:|:white_check_mark:|
 |Nested (Falsey)|:white_check_mark:||
 |Nested (Truthy)|:white_check_mark:||
 |Context Misses|:white_check_mark:|:white_check_mark:|
@@ -141,7 +144,7 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/sections.yml
 |Deeply Nested Contexts|||
 |List|:white_check_mark:||
 |Empty List|:white_check_mark:|:white_check_mark:|
-|Doubled|:white_check_mark:||
+|Doubled|:white_check_mark:|:white_check_mark:|
 |Nested (Truthy)|:white_check_mark:||
 |Nested (Falsey)|:white_check_mark:||
 |Context Misses|:white_check_mark:|:white_check_mark:|

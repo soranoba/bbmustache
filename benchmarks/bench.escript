@@ -9,8 +9,12 @@
           end},
          {"mustache.erl",
           fun (Template, Data) ->
+                  KeyConvFun   = fun(B) -> binary_to_atom(B, latin1) end,
+                  ValueConvFun = fun(V) when is_binary(V) -> binary_to_list(V);
+                                    (O) -> O
+                                 end,
                   list_to_binary(mustache:render(binary_to_list(Template),
-                                                 dict:from_list(key_conv_recursive(Data, fun(B) -> binary_to_atom(B, latin1) end))))
+                                                 dict:from_list(conv_recursive(Data, KeyConvFun, ValueConvFun))))
           end}
         ]).
 
@@ -66,7 +70,11 @@ main2([Test | Tests], Result) ->
                   ] | Result]).
 
 spec_test(Render, Assoc) ->
-    Data     = proplists:get_value(<<"data">>, Assoc),
+    Data0    = proplists:get_value(<<"data">>, Assoc),
+    Data     = case proplists:get_value(<<"lambda">>, Data0) of
+                   undefined -> Data0;
+                   Lambda    -> [{<<"lambda">>, lambda(Lambda)} | proplists:delete(<<"lambda">>, Data0)]
+               end,
     Expected = proplists:get_value(<<"expected">>, Assoc),
     Template = proplists:get_value(<<"template">>, Assoc),
     Partials = proplists:get_value(<<"partials">>, Assoc, []),
@@ -93,17 +101,17 @@ write_file({PartialFilename, PartialData}) ->
 write_file(_) ->
     ok.
 
-key_conv_recursive([{} | Rest], ConvFun) ->
-    key_conv_recursive(Rest, ConvFun);
-key_conv_recursive([{_, _} | _] = AssocList, ConvFun) ->
+conv_recursive([{} | Rest], KeyConvFun, ValueConvFun) ->
+    conv_recursive(Rest, KeyConvFun, ValueConvFun);
+conv_recursive([{_, _} | _] = AssocList, KeyConvFun, ValueConvFun) ->
     lists:foldl(fun({Key, [{_, _} | _] = Value}, Acc) ->
-                        [{ConvFun(Key), key_conv_recursive(Value, ConvFun)} | Acc];
+                        [{KeyConvFun(Key), conv_recursive(Value, KeyConvFun, ValueConvFun)} | Acc];
                    ({Key, Value}, Acc) when is_list(Value) ->
-                        [{ConvFun(Key), [key_conv_recursive(X, ConvFun) || X <- Value]} | Acc];
+                        [{KeyConvFun(Key), [conv_recursive(X, KeyConvFun, ValueConvFun) || X <- Value]} | Acc];
                    ({Key, Value}, Acc) ->
-                        [{ConvFun(Key), Value} | Acc]
+                        [{KeyConvFun(Key), ValueConvFun(Value)} | Acc]
                 end, [], AssocList);
-key_conv_recursive(Other, _) ->
+conv_recursive(Other, _, _) ->
     Other.
 
 list_to_dict_recursive([{_, _} | _] = AssocList) ->
@@ -116,3 +124,11 @@ list_to_dict_recursive([{_, _} | _] = AssocList) ->
                 end, dict:new(), AssocList);
 list_to_dict_recursive(Other) ->
     Other.
+
+lambda(LambdaList) ->
+    LambdaStr = binary_to_list(proplists:get_value(<<"erlang">>, LambdaList)),
+    io:format("~s~n", [LambdaStr]),
+    {ok, Token, _}  = erl_scan:string(LambdaStr),
+    {ok, [Form]}    = erl_parse:parse_exprs(Token),
+    {value, Fun, _} = erl_eval:expr(Form, erl_eval:new_bindings()),
+    Fun.
