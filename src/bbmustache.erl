@@ -421,7 +421,9 @@ remove_space_from_tail_impl(_, Size) ->
 to_iodata(Integer) when is_integer(Integer) ->
     list_to_binary(integer_to_list(Integer));
 to_iodata(Float) when is_float(Float) ->
-    io_lib:format("~p", [Float]);
+    %% NOTE: It is the same behaviour as io_lib:format("~p", [Float]), but it is fast than.
+    %%       http://www.cs.indiana.edu/~dyb/pubs/FP-Printing-PLDI96.pdf
+    io_lib_format:fwrite_g(Float);
 to_iodata(Atom) when is_atom(Atom) ->
     list_to_binary(atom_to_list(Atom));
 to_iodata(X) ->
