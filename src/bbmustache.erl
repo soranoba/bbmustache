@@ -63,10 +63,10 @@
 %%   Since the binary reference is used internally, it is not a capacitively large waste.
 %%   However, the greater the number of tags used, it should use the wasted memory.
 
--type tag()    :: {n,   key()}
-                | {'&', key()}
-                | {'#', key(), [tag()], source()}
-                | {'^', key(), [tag()]}
+-type tag()    :: {n,   [key()]}
+                | {'&', [key()]}
+                | {'#', [key()], [tag()], source()}
+                | {'^', [key()], [tag()]}
                 | {'>', key(), Indent :: source()}
                 | binary(). % plain text
 
@@ -113,7 +113,7 @@
 %% @see render/2
 %% @see compile/2
 
--type endtag()    :: {endtag, {state(), EndTag :: binary(), LastTagSize :: non_neg_integer(), Rest :: binary(), Result :: [tag()]}}.
+-type endtag()    :: {endtag, {state(), [key()], LastTagSize :: non_neg_integer(), Rest :: binary(), Result :: [tag()]}}.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
@@ -182,12 +182,12 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 -spec compile_impl(Template :: [tag()], data(), Result :: iodata(), template()) -> iodata().
 compile_impl([], _, Result, _) ->
     Result;
-compile_impl([{n, Key} | T], Map, Result, State) ->
-    compile_impl(T, Map, ?ADD(escape(to_iodata(get_data_recursive(Key, Map, <<>>, State))), Result), State);
-compile_impl([{'&', Key} | T], Map, Result, State) ->
-    compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Key, Map, <<>>, State)), Result), State);
-compile_impl([{'#', Key, Tags, Source} | T], Map, Result, State) ->
-    Value = get_data_recursive(Key, Map, false, State),
+compile_impl([{n, Keys} | T], Map, Result, State) ->
+    compile_impl(T, Map, ?ADD(escape(to_iodata(get_data_recursive(Keys, Map, <<>>, State))), Result), State);
+compile_impl([{'&', Keys} | T], Map, Result, State) ->
+    compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
+compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
+    Value = get_data_recursive(Keys, Map, false, State),
     case check_data_type(Value) of
         true ->
             compile_impl(T, Map, compile_impl(Tags, Value, Result, State), State);
@@ -202,8 +202,8 @@ compile_impl([{'#', Key, Tags, Source} | T], Map, Result, State) ->
         _ ->
             compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State)
     end;
-compile_impl([{'^', Key, Tags} | T], Map, Result, State) ->
-    Value = get_data_recursive(Key, Map, false, State),
+compile_impl([{'^', Keys, Tags} | T], Map, Result, State) ->
+    Value = get_data_recursive(Keys, Map, false, State),
     case Value =:= [] orelse Value =:= false of
         true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State);
         false -> compile_impl(T, Map, Result, State)
@@ -253,8 +253,8 @@ parse_binary_impl(State, Input) ->
 -spec parse(state(), binary()) -> {#state{}, [tag()]}.
 parse(State0, Bin) ->
     case parse1(State0, Bin, []) of
-        {endtag, {_, OtherTag, _, _, _}} ->
-            error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
+        {endtag, {_, Keys, _, _, _}} ->
+            error({?PARSE_ERROR, {section_is_incorrect, binary_join(Keys, <<".">>)}});
         {#state{partials = Partials} = State, Tags} ->
             {State#state{partials = lists:usort(Partials), start = ?START_TAG, stop = ?STOP_TAG},
              lists:reverse(Tags)}
@@ -286,9 +286,9 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
 parse2(State, [B1, B2, B3], Result) ->
     case remove_space_from_head(B2) of
         <<T, Tag/binary>> when T =:= $&; T =:= ${ ->
-            parse1(State#state{standalone = false}, B3, [{'&', remove_spaces(Tag)} | ?ADD(B1, Result)]);
+            parse1(State#state{standalone = false}, B3, [{'&', keys(Tag)} | ?ADD(B1, Result)]);
         <<T, Tag/binary>> when T =:= $#; T =:= $^ ->
-            parse_loop(State, ?IIF(T =:= $#, '#', '^'), remove_spaces(Tag), B3, [B1 | Result]);
+            parse_loop(State, ?IIF(T =:= $#, '#', '^'), keys(Tag), B3, [B1 | Result]);
         <<"=", Tag0/binary>> ->
             Tag1 = remove_space_from_tail(Tag0),
             Size = byte_size(Tag1) - 1,
@@ -299,11 +299,11 @@ parse2(State, [B1, B2, B3], Result) ->
         <<"!", _/binary>> ->
             parse3(State, B3, [B1 | Result]);
         <<"/", Tag/binary>> ->
-            {endtag, {State, remove_spaces(Tag), byte_size(B2) + 4, B3, [B1 | Result]}};
+            {endtag, {State, keys(Tag), byte_size(B2) + 4, B3, [B1 | Result]}};
         <<">", Tag/binary>> ->
-            parse_jump(State, remove_spaces(Tag), B3, [B1 | Result]);
+            parse_jump(State, filename_key(Tag), B3, [B1 | Result]);
         Tag ->
-            parse1(State#state{standalone = false}, B3, [{n, remove_spaces(Tag)} | ?ADD(B1, Result)])
+            parse1(State#state{standalone = false}, B3, [{n, keys(Tag)} | ?ADD(B1, Result)])
     end;
 parse2(_, _, _) ->
     error({?PARSE_ERROR, unclosed_tag}).
@@ -322,25 +322,25 @@ parse3(State0, Post0, Result0) ->
 %% @doc Loop processing part of the `parse/1'
 %%
 %% `{{# Tag}}' or `{{^ Tag}}' corresponds to this.
--spec parse_loop(state(), '#' | '^', Tag :: binary(), Input :: binary(), Result :: [tag()]) -> [tag()] | endtag().
-parse_loop(State0, Mark, Tag, Input0, Result0) ->
+-spec parse_loop(state(), '#' | '^', [key()], Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
+parse_loop(State0, Mark, Keys, Input0, Result0) ->
     {State1, _, Input1, Result1} = standalone(State0, Input0, Result0),
     case parse1(State1, Input1, []) of
-        {endtag, {State2, Tag, LastTagSize, Rest0, LoopResult0}} ->
+        {endtag, {State2, Keys, LastTagSize, Rest0, LoopResult0}} ->
             {State3, _, Rest1, LoopResult1} = standalone(State2, Rest0, LoopResult0),
             case Mark of
                 '#' -> Source = binary:part(Input1, 0, byte_size(Input1) - byte_size(Rest1) - LastTagSize),
-                       parse1(State3, Rest1, [{'#', Tag, lists:reverse(LoopResult1), Source} | Result1]);
-                '^' -> parse1(State3, Rest1, [{'^', Tag, lists:reverse(LoopResult1)} | Result1])
+                       parse1(State3, Rest1, [{'#', Keys, lists:reverse(LoopResult1), Source} | Result1]);
+                '^' -> parse1(State3, Rest1, [{'^', Keys, lists:reverse(LoopResult1)} | Result1])
             end;
-        {endtag, {_, OtherTag, _, _, _}} ->
-            error({?PARSE_ERROR, {section_is_incorrect, OtherTag}});
+        {endtag, {_, OtherKeys, _, _, _}} ->
+            error({?PARSE_ERROR, {section_is_incorrect, binary_join(OtherKeys, <<".">>)}});
         _ ->
-            error({?PARSE_ERROR, {section_end_tag_not_found, <<"/", Tag/binary>>}})
+            error({?PARSE_ERROR, {section_end_tag_not_found, <<"/", (binary_join(Keys, <<".">>))/binary>>}})
     end.
 
 %% @doc Endtag part of the `parse/1'
--spec parse_jump(state(), Tag :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | endtag().
+-spec parse_jump(state(), Tag :: binary(), NextBin :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse_jump(State0, Tag, NextBin0, Result0) ->
     {State1, Indent, NextBin1, Result1} = standalone(State0, NextBin0, Result0),
     State2 = State1#state{partials = [Tag | State1#state.partials]},
@@ -349,7 +349,7 @@ parse_jump(State0, Tag, NextBin0, Result0) ->
 %% @doc Update delimiter part of the `parse/1'
 %%
 %% ParseDelimiterBin :: e.g. `{{=%% %%=}}' -> `%% %%'
--spec parse_delimiter(state(), ParseDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> [tag()] | endtag().
+-spec parse_delimiter(state(), ParseDelimiterBin :: binary(), NextBin :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
     case binary:match(ParseDelimiterBin, <<"=">>) of
         nomatch ->
@@ -383,11 +383,27 @@ standalone(State, Post0, Result0) ->
             {State#state{standalone = false}, <<>>, Post0, ?ADD(Pre, Result1)}
     end.
 
+%% @doc binary to keys
+-spec keys(binary()) -> [key()].
+keys(Bin0) ->
+    Bin1 = << <<X:8>> || <<X:8>> <= Bin0, X =/= $  >>,
+    case Bin1 =:= <<>> orelse Bin1 =:= <<".">> of
+        true  -> [Bin1];
+        false -> [X || X <- binary:split(Bin1, <<".">>, [global]), X =/= <<>>]
+    end.
 
-%% @doc Remove the spaces.
--spec remove_spaces(binary()) -> binary().
-remove_spaces(Bin) ->
-	<< <<X:8>> || <<X:8>> <= Bin, X =/= $ >>.
+%% @doc binary to filename key
+-spec filename_key(binary()) -> key().
+filename_key(Bin) ->
+    remove_space_from_tail(remove_space_from_head(Bin)).
+
+%% @doc Function for binary like the `string:join/2'.
+-spec binary_join(BinaryList :: [binary()], Separator :: binary()) -> binary().
+binary_join([], _) ->
+    <<>>;
+binary_join(Bins, Sep) ->
+    [Hd | Tl] = [ [Sep, B] || B <- Bins ],
+    iolist_to_binary([tl(Hd) | Tl]).
 
 %% @doc Remove the space from the head.
 -spec remove_space_from_head(binary()) -> binary().
@@ -451,7 +467,7 @@ escape_char($") -> <<"&quot;">>;
 escape_char(C)  -> <<C:8>>.
 
 %% @doc convert to {@link data_key/0} from binary.
--spec convert_keytype(binary(), template()) -> data_key().
+-spec convert_keytype(key(), template()) -> data_key().
 convert_keytype(KeyBin, #?MODULE{options = Options}) ->
     case proplists:get_value(key_type, Options, string) of
         atom ->
@@ -467,14 +483,14 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 %% @doc fetch the value of the specified parent.child from {@link data/0}
 %%
 %% if key is ".", it means this.
--spec get_data_recursive(binary(), data(), Default :: term(), template()) -> term().
-get_data_recursive(<<".">>, Data, _Default, _State) ->
+-spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
+get_data_recursive([<<".">>], Data, _Default, _State) ->
 	Data;
-get_data_recursive(KeyBin, Data, Default, State) ->
-	get_data_recursive_impl(binary:split(KeyBin, <<".">>, [global]), Data, Default, State).
+get_data_recursive(Keys, Data, Default, State) ->
+	get_data_recursive_impl(Keys, Data, Default, State).
 
 %% @see get_data_recursive/4
--spec get_data_recursive_impl([BinKey :: binary()], data(), Default :: term(), template()) -> term().
+-spec get_data_recursive_impl([key()], data(), Default :: term(), template()) -> term().
 get_data_recursive_impl([Key], Data, Default, State) ->
 	get_data(convert_keytype(Key, State), Data, Default);
 get_data_recursive_impl([Key | RestKey], Data, Default, State) ->
