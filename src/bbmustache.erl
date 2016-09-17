@@ -305,7 +305,8 @@ parse2(State, [B1, B2, B3], Result) ->
         <<"!", _/binary>> ->
             parse3(State, B3, [B1 | Result]);
         <<"/", Tag/binary>> ->
-            {endtag, {State, keys(Tag), byte_size(B2) + 4, B3, [B1 | Result]}};
+            EndTagSize = byte_size(B2) + byte_size(State#state.start) + byte_size(State#state.stop),
+            {endtag, {State, keys(Tag), EndTagSize, B3, [B1 | Result]}};
         <<">", Tag/binary>> ->
             parse_jump(State, filename_key(Tag), B3, [B1 | Result]);
         Tag ->
