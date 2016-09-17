@@ -264,7 +264,7 @@ parse(State0, Bin) ->
 %%
 %% ATTENTION: The result is a list that is inverted.
 -spec parse1(state(), Input :: binary(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
-parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
+parse1(#state{start = Start} = State, Bin, Result) ->
     case binary:match(Bin, [Start, <<"\n">>]) of
         nomatch -> {State, ?ADD(Bin, Result)};
         {S, L}  ->
@@ -272,18 +272,56 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
             B2  = binary:part(Bin, Pos, byte_size(Bin) - Pos),
             case binary:at(Bin, S) of
                 $\n -> parse1(State#state{standalone = true}, B2, ?ADD(binary:part(Bin, 0, Pos), Result)); % \n
-                _   ->
-                    StopSeparator = ?IIF(binary:first(B2) =:= ${, <<"}", Stop/binary>>, Stop),
-                    TagAndRest    = binary:split(B2, StopSeparator),
-                    case binary:first(Start) =:= ${ andalso TagAndRest of
-                        [_] ->
-                            %% NOTE: support the cases. e.g. {{{hoge}} ....}
-                            parse2(State, [binary:part(Bin, 0, S + 1) | binary:split(B2, Stop)], Result);
-                        _   ->
-                            parse2(State, [binary:part(Bin, 0, S) | TagAndRest], Result)
+                _   -> parse2(State, split_tag(State, Bin), Result)
+            end
+    end.
+
+-spec split_tag(state(), binary()) -> [binary()].
+split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
+    case binary:match(Bin, StartDelimiter) of
+        nomatch ->
+            [Bin];
+        {StartPos, StartDelimiterLen} ->
+            PosLimit = byte_size(Bin) - StartDelimiterLen,
+            ShiftNum = while({true, StartPos + 1},
+                             fun(Pos) ->
+                                     ?IIF(Pos =< PosLimit
+                                          andalso binary:part(Bin, Pos, StartDelimiterLen) =:= StartDelimiter,
+                                          {true, Pos + 1}, {false, Pos})
+                             end) - StartPos - 1,
+            {PreTag, X} = split_binary(Bin, StartPos + ShiftNum),
+            Tag0        = part(X, StartDelimiterLen, 0),
+            case binary:split(Tag0, StopDelimiter) of
+                [_]          -> [PreTag, Tag0]; % not found.
+                [Tag, Rest]  ->
+                    IncludeStartDelimiterTag = binary:part(X, 0, byte_size(Tag) + StartDelimiterLen),
+                    E = ?IIF(StopDelimiter =:= <<"}}">>,
+                             ?IIF(byte_size(Rest) > 0 andalso binary:first(Rest) =:= $}, 1, 0),
+                             ?IIF(byte_size(Tag) > 0 andalso binary:last(Tag) =:= $}, -1, 0)),
+                    S = ?IIF(StartDelimiter =:= <<"{{">>,
+                             ?IIF(ShiftNum > 0, -1, 0),
+                             ?IIF(byte_size(Tag) > 0 andalso binary:first(Tag) =:= ${, 1, 0)),
+                    case E =:= 0 orelse S =:= 0 of
+                        true ->  % {{ ... }}
+                            [PreTag, Tag, Rest];
+                        false -> % {{{ ... }}}
+                            [part(PreTag, 0, min(0, S)),
+                             part(IncludeStartDelimiterTag, max(0, S) + StartDelimiterLen - 1, min(0, E)),
+                             part(Rest, max(0, E), 0)]
                     end
             end
     end.
+
+
+-spec while({boolean(), term()}, fun((term()) -> {boolean(), term()})) -> term().
+while({true, Value}, Fun) ->
+    while(Fun(Value), Fun);
+while({false, Value}, _Fun) ->
+    Value.
+
+-spec part(binary(), non_neg_integer(), 0 | neg_integer()) -> binary().
+part(X, Start, End) when End =< 0 ->
+    binary:part(X, Start, byte_size(X) - Start + End).
 
 %% @doc Part of the `parse/1'
 %%
