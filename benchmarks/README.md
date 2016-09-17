@@ -3,8 +3,8 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 67530 |
-|mustache.erl | 1018215 |
+|bbmustache | 67307 |
+|mustache.erl | 1028339 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.

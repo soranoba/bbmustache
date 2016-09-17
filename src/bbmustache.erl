@@ -274,13 +274,19 @@ parse1(#state{start = Start, stop = Stop} = State, Bin, Result) ->
                 $\n -> parse1(State#state{standalone = true}, B2, ?ADD(binary:part(Bin, 0, Pos), Result)); % \n
                 _   ->
                     StopSeparator = ?IIF(binary:first(B2) =:= ${, <<"}", Stop/binary>>, Stop),
-                    parse2(State, [binary:part(Bin, 0, S) | binary:split(B2, StopSeparator)], Result)
+                    TagAndRest    = binary:split(B2, StopSeparator),
+                    case binary:first(Start) =:= ${ andalso TagAndRest of
+                        [_] ->
+                            %% NOTE: support the cases. e.g. {{{hoge}} ....}
+                            parse2(State, [binary:part(Bin, 0, S + 1) | binary:split(B2, Stop)], Result);
+                        _   ->
+                            parse2(State, [binary:part(Bin, 0, S) | TagAndRest], Result)
+                    end
             end
     end.
 
 %% @doc Part of the `parse/1'
 %%
-%% 2nd Argument: [TagBinary(may exist unnecessary spaces to the end), RestBinary]
 %% ATTENTION: The result is a list that is inverted.
 -spec parse2(state(), iolist(), Result :: [tag()]) -> {state(), [tag()]} | endtag().
 parse2(State, [B1, B2, B3], Result) ->
