@@ -276,53 +276,6 @@ parse1(#state{start = Start} = State, Bin, Result) ->
             end
     end.
 
--spec split_tag(state(), binary()) -> [binary()].
-split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
-    case binary:match(Bin, StartDelimiter) of
-        nomatch ->
-            [Bin];
-        {StartPos, StartDelimiterLen} ->
-            PosLimit = byte_size(Bin) - StartDelimiterLen,
-            ShiftNum = while({true, StartPos + 1},
-                             fun(Pos) ->
-                                     ?IIF(Pos =< PosLimit
-                                          andalso binary:part(Bin, Pos, StartDelimiterLen) =:= StartDelimiter,
-                                          {true, Pos + 1}, {false, Pos})
-                             end) - StartPos - 1,
-            {PreTag, X} = split_binary(Bin, StartPos + ShiftNum),
-            Tag0        = part(X, StartDelimiterLen, 0),
-            case binary:split(Tag0, StopDelimiter) of
-                [_]          -> [PreTag, Tag0]; % not found.
-                [Tag, Rest]  ->
-                    IncludeStartDelimiterTag = binary:part(X, 0, byte_size(Tag) + StartDelimiterLen),
-                    E = ?IIF(StopDelimiter =:= <<"}}">>,
-                             ?IIF(byte_size(Rest) > 0 andalso binary:first(Rest) =:= $}, 1, 0),
-                             ?IIF(byte_size(Tag) > 0 andalso binary:last(Tag) =:= $}, -1, 0)),
-                    S = ?IIF(StartDelimiter =:= <<"{{">>,
-                             ?IIF(ShiftNum > 0, -1, 0),
-                             ?IIF(byte_size(Tag) > 0 andalso binary:first(Tag) =:= ${, 1, 0)),
-                    case E =:= 0 orelse S =:= 0 of
-                        true ->  % {{ ... }}
-                            [PreTag, Tag, Rest];
-                        false -> % {{{ ... }}}
-                            [part(PreTag, 0, min(0, S)),
-                             part(IncludeStartDelimiterTag, max(0, S) + StartDelimiterLen - 1, min(0, E)),
-                             part(Rest, max(0, E), 0)]
-                    end
-            end
-    end.
-
-
--spec while({boolean(), term()}, fun((term()) -> {boolean(), term()})) -> term().
-while({true, Value}, Fun) ->
-    while(Fun(Value), Fun);
-while({false, Value}, _Fun) ->
-    Value.
-
--spec part(binary(), non_neg_integer(), 0 | neg_integer()) -> binary().
-part(X, Start, End) when End =< 0 ->
-    binary:part(X, Start, byte_size(X) - Start + End).
-
 %% @doc Part of the `parse/1'
 %%
 %% ATTENTION: The result is a list that is inverted.
@@ -406,6 +359,55 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
             error({?PARSE_ERROR, delimiters_may_not_contain_equals})
     end.
 
+%% @doc Split by the tag, it returns a list of the split binary.
+%%
+%% e.g.
+%% ```
+%% 1> split_tag(State, <<"...{{hoge}}...">>).
+%% [<<"...">>, <<"hoge">>, <<"...">>]
+%%
+%% 2> split_tag(State, <<"...{{hoge ...">>).
+%% [<<"...">>, <<"hoge ...">>]
+%%
+%% 3> split_tag(State, <<"...">>)
+%% [<<"...">>]
+%% '''
+-spec split_tag(state(), binary()) -> [binary()].
+split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
+    case binary:match(Bin, StartDelimiter) of
+        nomatch ->
+            [Bin];
+        {StartPos, StartDelimiterLen} ->
+            PosLimit = byte_size(Bin) - StartDelimiterLen,
+            ShiftNum = while({true, StartPos + 1},
+                             fun(Pos) ->
+                                     ?IIF(Pos =< PosLimit
+                                          andalso binary:part(Bin, Pos, StartDelimiterLen) =:= StartDelimiter,
+                                          {true, Pos + 1}, {false, Pos})
+                             end) - StartPos - 1,
+            {PreTag, X} = split_binary(Bin, StartPos + ShiftNum),
+            Tag0        = part(X, StartDelimiterLen, 0),
+            case binary:split(Tag0, StopDelimiter) of
+                [_]          -> [PreTag, Tag0]; % not found.
+                [Tag, Rest]  ->
+                    IncludeStartDelimiterTag = binary:part(X, 0, byte_size(Tag) + StartDelimiterLen),
+                    E = ?IIF(repeatedly_binary(StopDelimiter, $}),
+                             ?IIF(byte_size(Rest) > 0 andalso binary:first(Rest) =:= $}, 1, 0),
+                             ?IIF(byte_size(Tag) > 0 andalso binary:last(Tag) =:= $}, -1, 0)),
+                    S = ?IIF(repeatedly_binary(StartDelimiter, ${),
+                             ?IIF(ShiftNum > 0, -1, 0),
+                             ?IIF(byte_size(Tag) > 0 andalso binary:first(Tag) =:= ${, 1, 0)),
+                    case E =:= 0 orelse S =:= 0 of
+                        true ->  % {{ ... }}
+                            [PreTag, Tag, Rest];
+                        false -> % {{{ ... }}}
+                            [part(PreTag, 0, min(0, S)),
+                             part(IncludeStartDelimiterTag, max(0, S) + StartDelimiterLen - 1, min(0, E)),
+                             part(Rest, max(0, E), 0)]
+                    end
+            end
+    end.
+
 %% @doc if it is standalone line, remove spaces from edge.
 -spec standalone(#state{}, binary(), [tag()]) -> {#state{}, StashPre :: binary(), Post :: binary(), [tag()]}.
 standalone(#state{standalone = false} = State, Post, [Pre | Result]) ->
@@ -427,6 +429,27 @@ standalone(State, Post0, Result0) ->
         _ ->
             {State#state{standalone = false}, <<>>, Post0, ?ADD(Pre, Result1)}
     end.
+
+%% @doc If the binary is repeatedly the character, return true. Otherwise, return false.
+-spec repeatedly_binary(binary(), char()) -> boolean().
+repeatedly_binary(<<X, Rest/binary>>, X) ->
+    repeatedly_binary(Rest, X);
+repeatedly_binary(<<>>, _) ->
+    true;
+repeatedly_binary(_, _) ->
+    false.
+
+%% @doc During the first element of the tuple is true, to perform the function repeatedly.
+-spec while({boolean(), term()}, fun((term()) -> {boolean(), term()})) -> term().
+while({true, Value}, Fun) ->
+    while(Fun(Value), Fun);
+while({false, Value}, _Fun) ->
+    Value.
+
+%% @equiv binary:part(X, Start, byte_size(X) - Start + End)
+-spec part(binary(), non_neg_integer(), 0 | neg_integer()) -> binary().
+part(X, Start, End) when End =< 0 ->
+    binary:part(X, Start, byte_size(X) - Start + End).
 
 %% @doc binary to keys
 -spec keys(binary()) -> [key()].
