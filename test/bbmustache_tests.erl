@@ -36,7 +36,7 @@ parse_binary_test_() ->
      {"{{{ ta g }}}",?NT_S([{'&', [<<"tag">>]}],                 <<"{{{ ta g }}}">>)},
      {"{{{tag",      ?NT_F({?PARSE_ERROR, unclosed_tag},         <<"{{{tag">>)},
      {"{{{tag}} other}",
-      ?NT_S([<<"{">>, {'&', [<<"tag">>]}, <<" other}">>], <<"{{{tag}} other}">>)},
+      ?NT_S([<<"{">>, {n, [<<"tag">>]}, <<" other}">>], <<"{{{tag}} other}">>)},
 
      {"{{& tag}}",   ?NT_S([<<"a">>, {'&', [<<"t">>]}, <<"b">>], <<"a{{& t}}b">>)},
      {"{{ & tag }}", ?NT_S([{'&', [<<"t">>]}],                   <<"{{ & t }}">>)},
@@ -87,7 +87,9 @@ parse_binary_test_() ->
      {"{{ = << >> = }}<<n>>",   ?NT_S([{n, [<<"n">>]}], <<"{{ = << >> = }}<<n>>">>)},
      {"{{=<= =>=}}<=n=>",       ?NT_F({?PARSE_ERROR, delimiters_may_not_contain_equals},      <<"{{=<= =>=}}<=n=>">>)},
      {"{{ = < < >> = }}< <n>>", ?NT_F({?PARSE_ERROR, delimiters_may_not_contain_whitespaces}, <<"{{ = < < >> = }}< <n>>">>)},
-     {"{{=<< >>}}",             ?NT_F({?PARSE_ERROR, {unsupported_tag, <<"=<< >>">>}},        <<"{{=<< >>}}">>)}
+     {"{{=<< >>}}",             ?NT_F({?PARSE_ERROR, {unsupported_tag, <<"=<< >>">>}},        <<"{{=<< >>}}">>)},
+
+     {"{{={ }=}}{{n}}",         ?NT_S([{'&', [<<"n">>]}], <<"{{={ }=}}{{n}}">>)}
     ].
 
 assoc_list_render_test_() ->
