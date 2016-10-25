@@ -10,9 +10,9 @@
 -define(PARSE_ERROR, incorrect_format).
 -define(FILE_ERROR,  file_not_found).
 
--define(NT_S(X, Y), ?_assertMatch({_, X, _, _, _}, bbmustache:parse_binary(Y))).
+-define(NT_S(X, Y), ?_assertMatch({_, X, _, _, _, _}, bbmustache:parse_binary(Y))).
 %% parse_binary_test generater (success case)
--define(NT_F(X, Y), ?_assertError(X,               bbmustache:parse_binary(Y))).
+-define(NT_F(X, Y), ?_assertError(X,                  bbmustache:parse_binary(Y))).
 %% parse_binary_test generater (failure case)
 
 parse_file_test_() ->

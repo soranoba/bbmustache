@@ -72,10 +72,11 @@
 
 -record(?MODULE,
         {
-          data          :: [tag()],
-          partials = [] :: [{key(), [tag()]}],
-          options  = [] :: [option()],
-          indents  = [] :: [binary()]
+          data               :: [tag()],
+          partials      = [] :: [{key(), [tag()]}],
+          options       = [] :: [option()],
+          indents       = [] :: [binary()],
+          context_stack = [] :: [data()]
         }).
 
 -opaque template() :: #?MODULE{}.
@@ -190,7 +191,8 @@ compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
     Value = get_data_recursive(Keys, Map, false, State),
     case check_data_type(Value) of
         true ->
-            compile_impl(T, Map, compile_impl(Tags, Value, Result, State), State);
+            NestedState = State#?MODULE{context_stack = [Map | State#?MODULE.context_stack]},
+            compile_impl(T, Map, compile_impl(Tags, Value, Result, NestedState), State);
         _ when is_list(Value) ->
             compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, State) end,
                                              Result, Value), State);
@@ -559,13 +561,17 @@ get_data_recursive(Keys, Data, Default, State) ->
 
 %% @see get_data_recursive/4
 -spec get_data_recursive_impl([key()], data(), Default :: term(), template()) -> term().
-get_data_recursive_impl([Key], Data, Default, State) ->
-	get_data(convert_keytype(Key, State), Data, Default);
-get_data_recursive_impl([Key | RestKey], Data, Default, State) ->
+get_data_recursive_impl([], Data, _, _) ->
+    Data;
+get_data_recursive_impl([Key | RestKey] = Keys, Data, Default, #?MODULE{context_stack = Stack} = State) ->
 	ChildData = get_data(convert_keytype(Key, State), Data, Default),
     case ChildData =:= Default of
-        true  -> ChildData;
-        false -> get_data_recursive_impl(RestKey, ChildData, Default, State)
+        true when Stack =:= [] ->
+            ChildData;
+        true ->
+            get_data_recursive_impl(Keys, hd(Stack), Default, State#?MODULE{context_stack = tl(Stack)});
+        false ->
+            get_data_recursive_impl(RestKey, ChildData, Default, State#?MODULE{context_stack = []})
     end.
 
 %% @doc fetch the value of the specified key from {@link data/0}
