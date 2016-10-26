@@ -15,7 +15,7 @@
         ]).
 -define(ALL_TEST, [variables_ct, sections_ct1, sections_ct2, sections_ct3, sections_ct4,
                    lambdas_ct, comments_ct, partials_ct, delimiter_ct, dot_ct, dot_unescape_ct,
-                   indent_partials_ct]).
+                   indent_partials_ct, context_stack_ct, context_stack_ct2]).
 
 -define(config2, proplists:get_value).
 -define(debug(X), begin io:format("~p", [X]), X end).
@@ -170,6 +170,23 @@ indent_partials_ct(Config) ->
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"a.result">>])),
 
     Data = [{"sections", [[{"section", "1st section"}], [{"section", "2nd section"}]]}],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+
+context_stack_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"context.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"context.result">>])),
+
+    Data = [{"a", [{"A", [{"1", "&"}]}]}, {"b", [{"B", [{"2", "<"}]}]}, {"c", [{"C", [{"3", ">"}]}]}],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+
+context_stack_ct2(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"context2.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"context2.result">>])),
+
+    Data = [
+            {"items", [[{"item", 1}], [{"item", 2}], [{"item", 3}]]},
+            {"a", [{"b", ["A", "B", "C"]}]}
+           ],
     ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
 
 %%----------------------------------------------------------------------------------------------------------------------

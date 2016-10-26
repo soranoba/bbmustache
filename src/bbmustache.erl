@@ -189,12 +189,12 @@ compile_impl([{'&', Keys} | T], Map, Result, State) ->
     compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
     Value = get_data_recursive(Keys, Map, false, State),
+    NestedState = State#?MODULE{context_stack = [Map | State#?MODULE.context_stack]},
     case check_data_type(Value) of
         true ->
-            NestedState = State#?MODULE{context_stack = [Map | State#?MODULE.context_stack]},
             compile_impl(T, Map, compile_impl(Tags, Value, Result, NestedState), State);
         _ when is_list(Value) ->
-            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, State) end,
+            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
                                              Result, Value), State);
         _ when Value =:= false ->
             compile_impl(T, Map, Result, State);
