@@ -554,36 +554,36 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 %%
 %% if key is ".", it means this.
 -spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
-get_data_recursive([<<".">>], Data, _Default, _State) ->
-	Data;
-get_data_recursive(Keys, Data, Default, State) ->
-	get_data_recursive_impl(Keys, Data, Default, State).
-
-%% @see get_data_recursive/4
--spec get_data_recursive_impl([key()], data(), Default :: term(), template()) -> term().
-get_data_recursive_impl([], Data, _, _) ->
+get_data_recursive([], Data, _, _) ->
     Data;
-get_data_recursive_impl([Key | RestKey] = Keys, Data, Default, #?MODULE{context_stack = Stack} = State) ->
-	ChildData = get_data(convert_keytype(Key, State), Data, Default),
-    case ChildData =:= Default of
-        true when Stack =:= [] ->
-            ChildData;
-        true ->
-            get_data_recursive_impl(Keys, hd(Stack), Default, State#?MODULE{context_stack = tl(Stack)});
-        false ->
-            get_data_recursive_impl(RestKey, ChildData, Default, State#?MODULE{context_stack = []})
+get_data_recursive([<<".">>], Data, _, _) ->
+	Data;
+get_data_recursive([Key | RestKey] = Keys, Data, Default, #?MODULE{context_stack = Stack} = State) ->
+	case find_data(convert_keytype(Key, State), Data) of
+        {ok, ChildData} ->
+            get_data_recursive(RestKey, ChildData, Default, State#?MODULE{context_stack = []});
+        error when Stack =:= [] ->
+            Default;
+        error ->
+            get_data_recursive(Keys, hd(Stack), Default, State#?MODULE{context_stack = tl(Stack)})
     end.
 
-%% @doc fetch the value of the specified key from {@link data/0}
--spec get_data(data_key(), data(), Default :: term()) -> term().
+%% @doc find the value of the specified key from {@link data/0}
+-spec find_data(data_key(), data()) -> {ok, Value ::term()} | error.
 -ifdef(namespaced_types).
-get_data(Key, Map, Default) when is_map(Map) ->
-    maps:get(Key, Map, Default);
-get_data(Key, AssocList, Default) ->
-    proplists:get_value(Key, AssocList, Default).
+find_data(Key, Map) when is_map(Map) ->
+    maps:find(Key, Map);
+find_data(Key, AssocList) ->
+    case proplists:lookup(Key, AssocList) of
+        none   -> error;
+        {_, V} -> {ok, V}
+    end.
 -else.
-get_data(Key, AssocList, Default) ->
-    proplists:get_value(Key, AssocList, Default).
+find_data(Key, AssocList) ->
+    case proplists:lookup(Key, AssocList) of
+        none   -> error;
+        {_, V} -> {ok, V}
+    end.
 -endif.
 
 %% @doc check whether the type of {@link data/0}
