@@ -72,10 +72,11 @@
 
 -record(?MODULE,
         {
-          data          :: [tag()],
-          partials = [] :: [{key(), [tag()]}],
-          options  = [] :: [option()],
-          indents  = [] :: [binary()]
+          data               :: [tag()],
+          partials      = [] :: [{key(), [tag()]}],
+          options       = [] :: [option()],
+          indents       = [] :: [binary()],
+          context_stack = [] :: [data()]
         }).
 
 -opaque template() :: #?MODULE{}.
@@ -188,11 +189,12 @@ compile_impl([{'&', Keys} | T], Map, Result, State) ->
     compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
     Value = get_data_recursive(Keys, Map, false, State),
+    NestedState = State#?MODULE{context_stack = [Map | State#?MODULE.context_stack]},
     case check_data_type(Value) of
         true ->
-            compile_impl(T, Map, compile_impl(Tags, Value, Result, State), State);
+            compile_impl(T, Map, compile_impl(Tags, Value, Result, NestedState), State);
         _ when is_list(Value) ->
-            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, State) end,
+            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
                                              Result, Value), State);
         _ when Value =:= false ->
             compile_impl(T, Map, Result, State);
@@ -552,32 +554,36 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 %%
 %% if key is ".", it means this.
 -spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
-get_data_recursive([<<".">>], Data, _Default, _State) ->
+get_data_recursive([], Data, _, _) ->
+    Data;
+get_data_recursive([<<".">>], Data, _, _) ->
 	Data;
-get_data_recursive(Keys, Data, Default, State) ->
-	get_data_recursive_impl(Keys, Data, Default, State).
-
-%% @see get_data_recursive/4
--spec get_data_recursive_impl([key()], data(), Default :: term(), template()) -> term().
-get_data_recursive_impl([Key], Data, Default, State) ->
-	get_data(convert_keytype(Key, State), Data, Default);
-get_data_recursive_impl([Key | RestKey], Data, Default, State) ->
-	ChildData = get_data(convert_keytype(Key, State), Data, Default),
-    case ChildData =:= Default of
-        true  -> ChildData;
-        false -> get_data_recursive_impl(RestKey, ChildData, Default, State)
+get_data_recursive([Key | RestKey] = Keys, Data, Default, #?MODULE{context_stack = Stack} = State) ->
+	case find_data(convert_keytype(Key, State), Data) of
+        {ok, ChildData} ->
+            get_data_recursive(RestKey, ChildData, Default, State#?MODULE{context_stack = []});
+        error when Stack =:= [] ->
+            Default;
+        error ->
+            get_data_recursive(Keys, hd(Stack), Default, State#?MODULE{context_stack = tl(Stack)})
     end.
 
-%% @doc fetch the value of the specified key from {@link data/0}
--spec get_data(data_key(), data(), Default :: term()) -> term().
+%% @doc find the value of the specified key from {@link data/0}
+-spec find_data(data_key(), data()) -> {ok, Value ::term()} | error.
 -ifdef(namespaced_types).
-get_data(Key, Map, Default) when is_map(Map) ->
-    maps:get(Key, Map, Default);
-get_data(Key, AssocList, Default) ->
-    proplists:get_value(Key, AssocList, Default).
+find_data(Key, Map) when is_map(Map) ->
+    maps:find(Key, Map);
+find_data(Key, AssocList) ->
+    case proplists:lookup(Key, AssocList) of
+        none   -> error;
+        {_, V} -> {ok, V}
+    end.
 -else.
-get_data(Key, AssocList, Default) ->
-    proplists:get_value(Key, AssocList, Default).
+find_data(Key, AssocList) ->
+    case proplists:lookup(Key, AssocList) of
+        none   -> error;
+        {_, V} -> {ok, V}
+    end.
 -endif.
 
 %% @doc check whether the type of {@link data/0}
