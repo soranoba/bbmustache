@@ -117,11 +117,56 @@ atom_and_binary_key_test_() ->
               F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
               ?assertEqual(<<"<b>Willy is awesome.</b>">>,
                            bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
-                                           [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
+                                             [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
       end}
     ].
 
 unsupported_data_test_() ->
     [
      {"dict", ?_assertError(function_clause, bbmustache:render(<<>>, dict:new()))}
+    ].
+
+raise_on_context_miss_test_() ->
+    [
+     {"It raise an exception, if the key of escape tag does not exist",
+      ?_assertError({context_missing, {key, <<"child">>}},
+                    bbmustache:render(<<"{{ child }}">>, [], [raise_on_context_miss]))},
+     {"It raise an exception, if the key of unescape tag does not exist",
+      ?_assertError({context_missing, {key, <<"child">>}},
+                    bbmustache:render(<<"{{{child}}}">>, [], [raise_on_context_miss]))},
+     {"It raise an exception, if the key of & tag does not exist",
+      ?_assertError({context_missing, {key, <<"child">>}},
+                    bbmustache:render(<<"{{&child}}">>, [], [raise_on_context_miss]))},
+     {"It raise an exception, if the child does not exist (parent is a # tag)",
+      ?_assertError({context_missing, {key, <<"child">>}},
+                    bbmustache:render(<<"{{#parent}}{{child}}{{/parent}}">>,
+                                      [{"parent", true}],
+                                      [raise_on_context_miss]))},
+     {"It raise an exception, if the child does not exist (parent is a ^ tag)",
+      ?_assertError({context_missing, {key, <<"child">>}},
+                    bbmustache:render(<<"{{^parent}}{{child}}{{/parent}}">>,
+                                      [{"parent", false}],
+                                      [raise_on_context_miss]))},
+     {"It raise an exception, if the key of # tag does not exist",
+      ?_assertError({context_missing, {key, <<"parent">>}},
+                    bbmustache:render(<<"{{#parent}}{{/parent}}">>, [], [raise_on_context_miss]))},
+     {"It raise an exception, if the key of ^ tag does not exist",
+      ?_assertError({context_missing, {key, <<"parent">>}},
+                    bbmustache:render(<<"{{^parent}}{{/parent}}">>, [], [raise_on_context_miss]))},
+     {"It does not raise an exception, if the child of the hidden parent does not exist (parent is a ^ tag)",
+      ?_assertEqual(<<"">>, bbmustache:render(<<"{{^parent}}{{child}}{{/parent}}">>,
+                                              [{"parent", true}],
+                                              [raise_on_context_miss]))},
+     {"It does not raise an exception, if the child of the hidden parent does not exist (parent is a # tag)",
+      ?_assertEqual(<<"">>, bbmustache:render(<<"{{#parent}}{{child}}{{/parent}}">>,
+                                              [{"parent", false}],
+                                              [raise_on_context_miss]))},
+     {"It raise an exception, if specified file does not exist",
+      ?_assertError({context_missing, {file_not_found, <<"not_found_filename">>}},
+                    bbmustache:render(<<"{{> not_found_filename}}">>, [], [raise_on_context_miss]))},
+     {"The exceptions thrown include information on the specified key",
+      ?_assertError({context_missing, {key, <<"parent.child">>}},
+                    bbmustache:render(<<"{{#parent}}{{ parent . child }}{{/parent}}">>,
+                                      [{"parent", true}, {"child", []}],
+                                      [raise_on_context_miss]))}
     ].
