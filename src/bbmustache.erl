@@ -557,9 +557,9 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 get_data_recursive([], Data, _, _) ->
     Data;
 get_data_recursive([<<".">>], Data, _, _) ->
-	Data;
+    Data;
 get_data_recursive([Key | RestKey] = Keys, Data, Default, #?MODULE{context_stack = Stack} = State) ->
-	case find_data(convert_keytype(Key, State), Data) of
+    case find_data(convert_keytype(Key, State), Data) of
         {ok, ChildData} ->
             get_data_recursive(RestKey, ChildData, Default, State#?MODULE{context_stack = []});
         error when Stack =:= [] ->
