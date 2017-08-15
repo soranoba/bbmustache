@@ -31,14 +31,19 @@
 %% Defines & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
 
--define(PARSE_ERROR, incorrect_format).
--define(FILE_ERROR,  file_not_found).
+-define(PARSE_ERROR,                incorrect_format).
+-define(FILE_ERROR,                 file_not_found).
+-define(CONTEXT_MISSING_ERROR(Msg), {context_missing, Msg}).
+
 -define(IIF(Cond, TValue, FValue),
         case Cond of true -> TValue; false -> FValue end).
 
 -define(ADD(X, Y), ?IIF(X =:= <<>>, Y, [X | Y])).
 -define(START_TAG, <<"{{">>).
 -define(STOP_TAG,  <<"}}">>).
+
+-define(RAISE_ON_CONTEXT_MISS_ENABLED(Options),
+        proplists:get_bool(raise_on_context_miss, Options)).
 
 -type key()    :: binary().
 %% Key MUST be a non-whitespace character sequence NOT containing the current closing delimiter. <br />
@@ -101,8 +106,10 @@
 
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
--type option()     :: {key_type, atom | binary | string}.
+-type option()     :: {key_type, atom | binary | string}
+                    | raise_on_context_miss.
 %% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
+%% - raise_on_contex_miss: If key exists in template does not exist in data, it will throw an exception (error).
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
@@ -212,7 +219,11 @@ compile_impl([{'^', Keys, Tags} | T], Map, Result, State) ->
     end;
 compile_impl([{'>', Key, Indent} | T], Map, Result0, #?MODULE{partials = Partials} = State) ->
     case proplists:get_value(Key, Partials) of
-        undefined -> compile_impl(T, Map, Result0, State);
+        undefined ->
+            case ?RAISE_ON_CONTEXT_MISS_ENABLED(State#?MODULE.options) of
+                true  -> error(?CONTEXT_MISSING_ERROR({?FILE_ERROR, Key}));
+                false -> compile_impl(T, Map, Result0, State)
+            end;
         PartialT  ->
             Indents = State#?MODULE.indents ++ [Indent],
             Result1 = compile_impl(PartialT, Map, [Indent | Result0], State#?MODULE{indents = Indents}),
@@ -244,7 +255,7 @@ parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MOD
                     {State1, Data} = parse(State, Input),
                     parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]});
                 _ ->
-                    parse_binary_impl(State, Template#?MODULE{partials = [{P, []}]})
+                    parse_binary_impl(State#state{partials = PartialKeys}, Template#?MODULE{partials = []})
             end
     end;
 parse_binary_impl(State, Input) ->
@@ -550,22 +561,35 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
         binary -> KeyBin
     end.
 
-%% @doc fetch the value of the specified parent.child from {@link data/0}
+%% @doc fetch the value of the specified `Keys' from {@link data/0}
 %%
-%% if key is ".", it means this.
+%% - If `Keys' is `[<<".">>]', it returns `Data'.
+%% - If raise_on_context_miss enabled, it raise an exception when missing `Keys'. Otherwise, it returns `Default'.
 -spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
-get_data_recursive([], Data, _, _) ->
-    Data;
-get_data_recursive([<<".">>], Data, _, _) ->
-	Data;
-get_data_recursive([Key | RestKey] = Keys, Data, Default, #?MODULE{context_stack = Stack} = State) ->
-	case find_data(convert_keytype(Key, State), Data) of
+get_data_recursive(Keys, Data, Default, Template) ->
+    case get_data_recursive_impl(Keys, Data, Template) of
+        {ok, Term} -> Term;
+        error      ->
+            case ?RAISE_ON_CONTEXT_MISS_ENABLED(Template#?MODULE.options) of
+                true  -> error(?CONTEXT_MISSING_ERROR({key, binary_join(Keys, <<".">>)}));
+                false -> Default
+            end
+    end.
+
+%% @see get_data_recursive/4
+-spec get_data_recursive_impl([key()], data(), template()) -> {ok, term()} | error.
+get_data_recursive_impl([], Data, _) ->
+    {ok, Data};
+get_data_recursive_impl([<<".">>], Data, _) ->
+    {ok, Data};
+get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = Stack} = State) ->
+    case check_data_type(Data) =:= true andalso find_data(convert_keytype(Key, State), Data) of
         {ok, ChildData} ->
-            get_data_recursive(RestKey, ChildData, Default, State#?MODULE{context_stack = []});
-        error when Stack =:= [] ->
-            Default;
-        error ->
-            get_data_recursive(Keys, hd(Stack), Default, State#?MODULE{context_stack = tl(Stack)})
+            get_data_recursive_impl(RestKey, ChildData, State#?MODULE{context_stack = []});
+        _ when Stack =:= [] ->
+            error;
+        _ ->
+            get_data_recursive_impl(Keys, hd(Stack), State#?MODULE{context_stack = tl(Stack)})
     end.
 
 %% @doc find the value of the specified key from {@link data/0}
