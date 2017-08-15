@@ -167,6 +167,19 @@ raise_on_context_miss_test_() ->
      {"The exceptions thrown include information on the specified key",
       ?_assertError({context_missing, {key, <<"parent.child">>}},
                     bbmustache:render(<<"{{#parent}}{{ parent . child }}{{/parent}}">>,
-                                      [{"parent", true}, {"child", []}],
+                                      [{"parent", [{"dummy", true}]}, {"child", []}],
+                                      [raise_on_context_miss]))}
+    ].
+
+context_stack_test_() ->
+    [
+     {"It can use the key which parent is not a dictionary (resolve #22)",
+      ?_assertEqual(<<"aaabbb">>,
+                    bbmustache:render(<<"{{#parent}}aaa{{parent.child}}bbb{{/parent}}">>,
+                                      [{"parent", true}]))},
+     {"It hide all tags in # tag that is specfied empty list",
+      ?_assertEqual(<<"">>,
+                    bbmustache:render(<<"{{#parent}}aaa{{parent.child}}bbb{{/parent}}">>,
+                                      [{"parent", []}],
                                       [raise_on_context_miss]))}
     ].
