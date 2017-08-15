@@ -107,9 +107,14 @@
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
 -type option()     :: {key_type, atom | binary | string}
-                    | raise_on_context_miss.
-%% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
-%% - raise_on_contex_miss: If key exists in template does not exist in data, it will throw an exception (error).
+                    | raise_on_context_miss
+                    | {escape_fun, fun((binary()) -> binary())}.
+%% - key_type:
+%%    -- Specify the type of the key in {@link data/0}. Default value is `string'.
+%% - raise_on_contex_miss:
+%%    -- If key exists in template does not exist in data, it will throw an exception (error).
+%% - escape_fun:
+%%    -- Specify your own escape function.
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
@@ -191,7 +196,9 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Keys} | T], Map, Result, State) ->
-    compile_impl(T, Map, ?ADD(escape(to_iodata(get_data_recursive(Keys, Map, <<>>, State))), Result), State);
+    Value = iolist_to_binary(to_iodata(get_data_recursive(Keys, Map, <<>>, State))),
+    EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
+    compile_impl(T, Map, ?ADD(EscapeFun(Value), Result), State);
 compile_impl([{'&', Keys} | T], Map, Result, State) ->
     compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
@@ -534,9 +541,8 @@ to_binary(Str) when is_list(Str) ->
     list_to_binary(Str).
 
 %% @doc HTML Escape
--spec escape(iodata()) -> binary().
-escape(IoData) ->
-    Bin = iolist_to_binary(IoData),
+-spec escape(binary()) -> binary().
+escape(Bin) ->
     << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
 
 %% @doc escape a character if needed.

@@ -183,3 +183,12 @@ context_stack_test_() ->
                                       [{"parent", []}],
                                       [raise_on_context_miss]))}
     ].
+
+escape_fun_test_() ->
+    [
+     {"It is able to specified own escape function",
+      ?_assertEqual(<<"==>value<==">>,
+                    bbmustache:render(<<"{{tag}}">>,
+                                      [{"tag", "value"}],
+                                      [{escape_fun, fun(X) -> <<"==>", X/binary, "<==">> end}]))}
+    ].
