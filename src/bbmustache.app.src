@@ -1,6 +1,6 @@
 {application,bbmustache,
              [{description,"Binary pattern match Based Mustache template engine for Erlang/OTP"},
-              {vsn,"1.4.0"},
+              {vsn,"1.5.0"},
               {registered,[]},
               {applications,[kernel,stdlib]},
               {maintainers,["Hinagiku Soranoba"]},
