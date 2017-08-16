@@ -60,11 +60,15 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 
 
 <pre><code>
-option() = {key_type, atom | binary | string} | raise_on_context_miss
+option() = {key_type, atom | binary | string} | raise_on_context_miss | {escape_fun, fun((binary()) -&gt; binary())}
 </code></pre>
 
- - key_type: Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
-- raise_on_contex_miss: If key exists in template does not exist in data, it will throw an exception (error).
+ - key_type:
+-- Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
+- raise_on_contex_miss:
+-- If key exists in template does not exist in data, it will throw an exception (error).
+- escape_fun:
+-- Specify your own escape function.
 
 
 
