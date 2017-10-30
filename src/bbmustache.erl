@@ -111,7 +111,7 @@
                     | {escape_fun, fun((binary()) -> binary())}.
 %% - key_type:
 %%    -- Specify the type of the key in {@link data/0}. Default value is `string'.
-%% - raise_on_contex_miss:
+%% - raise_on_context_miss:
 %%    -- If key exists in template does not exist in data, it will throw an exception (error).
 %% - escape_fun:
 %%    -- Specify your own escape function.
