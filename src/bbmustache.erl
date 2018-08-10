@@ -78,7 +78,10 @@
 -record(?MODULE,
         {
           data               :: [tag()],
-          partials      = [] :: [{key(), [tag()]}],
+
+          partials      = [] :: [{key(), [tag()]} | key()],
+          %% When it include key(), The key already parsed but its file does not exist.
+
           options       = [] :: [option()],
           indents       = [] :: [binary()],
           context_stack = [] :: [data()]
@@ -262,7 +265,7 @@ parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MOD
                     {State1, Data} = parse(State, Input),
                     parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]});
                 _ ->
-                    parse_binary_impl(State#state{partials = PartialKeys}, Template#?MODULE{partials = []})
+                    parse_binary_impl(State#state{partials = PartialKeys}, Template#?MODULE{partials = [P | Partials]})
             end
     end;
 parse_binary_impl(State, Input) ->
