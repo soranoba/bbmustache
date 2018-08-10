@@ -171,7 +171,8 @@ parse_binary(Bin) when is_binary(Bin) ->
 %% @doc Create a {@link template/0} from a binary.
 -spec parse_binary(binary(), [parse_option()]) -> template().
 parse_binary(Bin, Options) ->
-    parse_binary_impl(#state{}, Bin, Options).
+    {State, Data} = parse(#state{}, Bin),
+    parse_remaining_partials(State, #?MODULE{data = Data}, Options).
 
 %% @equiv parse_file(Filename, [])
 -spec parse_file(file:filename_all()) -> template().
@@ -182,15 +183,16 @@ parse_file(Filename) ->
 -spec parse_file(file:filename_all(), [parse_option()]) -> template().
 parse_file(Filename, Options) ->
     State = #state{dirname = filename:dirname(Filename)},
-    case to_binary(filename:extension(Filename)) of
-        <<".mustache">> = Ext ->
-            Partials = [Key = to_binary(filename:basename(Filename, Ext))],
-            parse_binary_impl(State#state{partials = Partials}, #?MODULE{data = [{'>', Key, <<>>}]}, Options);
+    case file:read_file(Filename) of
+        {ok, Bin} ->
+            {State1, Data} = parse(State, Bin),
+            Template = case to_binary(filename:extension(Filename)) of
+                           <<".mustache">> = Ext -> #?MODULE{partials = [{filename:basename(Filename, Ext), Data}], data = Data};
+                           _                     -> #?MODULE{data = Data}
+                       end,
+            parse_remaining_partials(State1, Template, Options);
         _ ->
-            case file:read_file(Filename) of
-                {ok, Bin} -> parse_binary_impl(State, Bin, Options);
-                _         -> error(?FILE_ERROR, [Filename])
-            end
+            error(?FILE_ERROR, [Filename, Options])
     end.
 
 %% @equiv compile(Template, Data, [])
@@ -276,14 +278,13 @@ compile_impl([B1 | [_|_] = T], Map, Result, #?MODULE{indents = Indents} = State)
 compile_impl([Bin | T], Map, Result, State) ->
     compile_impl(T, Map, [Bin | Result], State).
 
-%% @see parse_binary/1
--spec parse_binary_impl(state(), Input | template(), [parse_option()]) -> template() when
-      Input :: binary().
-parse_binary_impl(#state{partials = []}, Template = #?MODULE{}, _Options) ->
+%% @doc Parse remaining partials in State. It returns {@link template/0}.
+-spec parse_remaining_partials(state(), template(), [parse_option()]) -> template().
+parse_remaining_partials(#state{partials = []}, Template = #?MODULE{}, _Options) ->
     Template;
-parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MODULE{partials = Partials}, Options) ->
+parse_remaining_partials(State = #state{partials = [P | PartialKeys]}, Template = #?MODULE{partials = Partials}, Options) ->
     case proplists:is_defined(P, Partials) of
-        true  -> parse_binary_impl(State#state{partials = PartialKeys}, Template, Options);
+        true  -> parse_remaining_partials(State#state{partials = PartialKeys}, Template, Options);
         false ->
             Filename0 = <<P/binary, ".mustache">>,
             Dirname   = State#state.dirname,
@@ -291,18 +292,15 @@ parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MOD
             case file:read_file(Filename) of
                 {ok, Input} ->
                     {State1, Data} = parse(State, Input),
-                    parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]}, Options);
+                    parse_remaining_partials(State1, Template#?MODULE{partials = [{P, Data} | Partials]}, Options);
                 {error, Reason} ->
                     case ?RAISE_ON_PARTIAL_MISS_ENABLED(Options) of
                         true  -> error({?FILE_ERROR, P, Reason});
-                        false -> parse_binary_impl(State#state{partials = PartialKeys},
-                                                   Template#?MODULE{partials = [P | Partials]}, Options)
+                        false -> parse_remaining_partials(State#state{partials = PartialKeys},
+                                                          Template#?MODULE{partials = [P | Partials]}, Options)
                     end
             end
-    end;
-parse_binary_impl(State, Input, Options) ->
-    {State1, Data} = parse(State, Input),
-    parse_binary_impl(State1, #?MODULE{data = Data}, Options).
+    end.
 
 %% @doc Analyze the syntax of the mustache.
 -spec parse(state(), binary()) -> {#state{}, [tag()]}.
