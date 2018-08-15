@@ -17,7 +17,8 @@
 
 parse_file_test_() ->
     [
-     {"file_not_exist", ?_assertError(?FILE_ERROR, bbmustache:parse_file(<<"not_exist">>))}
+     {"file_not_exist (without extension)", ?_assertError(?FILE_ERROR, bbmustache:parse_file(<<"not_exist">>))},
+     {"file_not_exist (with extension)",    ?_assertError(?FILE_ERROR, bbmustache:parse_file(<<"not_exist.mustache">>))}
     ].
 
 parse_binary_test_() ->

@@ -16,7 +16,9 @@
          render/2,
          render/3,
          parse_binary/1,
+         parse_binary/2,
          parse_file/1,
+         parse_file/2,
          compile/2,
          compile/3
         ]).
@@ -24,7 +26,10 @@
 -export_type([
               template/0,
               data/0,
-              option/0
+              option/0, % depreacted
+              compile_option/0,
+              parse_option/0,
+              render_option/0
              ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
@@ -44,6 +49,8 @@
 
 -define(RAISE_ON_CONTEXT_MISS_ENABLED(Options),
         proplists:get_bool(raise_on_context_miss, Options)).
+-define(RAISE_ON_PARTIAL_MISS_ENABLED(Options),
+        proplists:get_bool(raise_on_partial_miss, Options)).
 
 -type key()    :: binary().
 %% Key MUST be a non-whitespace character sequence NOT containing the current closing delimiter. <br />
@@ -78,8 +85,12 @@
 -record(?MODULE,
         {
           data               :: [tag()],
-          partials      = [] :: [{key(), [tag()]}],
-          options       = [] :: [option()],
+
+          partials      = [] :: [{key(), [tag()]} | key()],
+          %% The `{key(), [tag()]}` indicates that `key()` already parsed and `[tag()]` is the result of parsing.
+          %% The `key()` indicates that the file did not exist.
+
+          options       = [] :: [compile_option()],
           indents       = [] :: [binary()],
           context_stack = [] :: [data()]
         }).
@@ -106,15 +117,23 @@
 
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
--type option()     :: {key_type, atom | binary | string}
-                    | raise_on_context_miss
-                    | {escape_fun, fun((binary()) -> binary())}.
-%% - key_type:
-%%    -- Specify the type of the key in {@link data/0}. Default value is `string'.
-%% - raise_on_context_miss:
-%%    -- If key exists in template does not exist in data, it will throw an exception (error).
-%% - escape_fun:
-%%    -- Specify your own escape function.
+-type parse_option() :: raise_on_partial_miss.
+%% - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
+
+-type compile_option() :: {key_type, atom | binary | string}
+                       | raise_on_context_miss
+                       | {escape_fun, fun((binary()) -> binary())}.
+%% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
+%% - raise_on_context_miss: If key exists in template does not exist in data, it will throw an exception (error).
+%% - escape_fun: Specify your own escape function.
+
+-type render_option() :: compile_option() | parse_option().
+%% @see compile_option/0
+%% @see parse_option/0
+
+-type option() :: compile_option().
+%% This type has been depreacted since 1.6.0. It will remove in 2.0.0.
+%% @see compile_option/0
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
@@ -138,28 +157,40 @@ render(Bin, Data) ->
     render(Bin, Data, []).
 
 %% @equiv compile(parse_binary(Bin), Data, Options)
--spec render(binary(), data(), [option()]) -> binary().
+-spec render(binary(), data(), [render_option()]) -> binary().
 render(Bin, Data, Options) ->
-    compile(parse_binary(Bin), Data, Options).
+    compile(parse_binary(Bin, Options), Data, Options).
 
-%% @doc Create a {@link template/0} from a binary.
+%% @equiv parse_binary(Bin, [])
 -spec parse_binary(binary()) -> template().
 parse_binary(Bin) when is_binary(Bin) ->
-    parse_binary_impl(#state{}, Bin).
+    parse_binary(Bin, []).
 
-%% @doc Create a {@link template/0} from a file.
+%% @doc Create a {@link template/0} from a binary.
+-spec parse_binary(binary(), [parse_option()]) -> template().
+parse_binary(Bin, Options) ->
+    {State, Data} = parse(#state{}, Bin),
+    parse_remaining_partials(State, #?MODULE{data = Data}, Options).
+
+%% @equiv parse_file(Filename, [])
 -spec parse_file(file:filename_all()) -> template().
 parse_file(Filename) ->
+    parse_file(Filename, []).
+
+%% @doc Create a {@link template/0} from a file.
+-spec parse_file(file:filename_all(), [parse_option()]) -> template().
+parse_file(Filename, Options) ->
     State = #state{dirname = filename:dirname(Filename)},
-    case to_binary(filename:extension(Filename)) of
-        <<".mustache">> = Ext ->
-            Partials = [Key = to_binary(filename:basename(Filename, Ext))],
-            parse_binary_impl(State#state{partials = Partials}, #?MODULE{data = [{'>', Key, <<>>}]});
+    case file:read_file(Filename) of
+        {ok, Bin} ->
+            {State1, Data} = parse(State, Bin),
+            Template = case to_binary(filename:extension(Filename)) of
+                           <<".mustache">> = Ext -> #?MODULE{partials = [{filename:basename(Filename, Ext), Data}], data = Data};
+                           _                     -> #?MODULE{data = Data}
+                       end,
+            parse_remaining_partials(State1, Template, Options);
         _ ->
-            case file:read_file(Filename) of
-                {ok, Bin} -> parse_binary_impl(State, Bin);
-                _         -> error(?FILE_ERROR, [Filename])
-            end
+            error(?FILE_ERROR, [Filename, Options])
     end.
 
 %% @equiv compile(Template, Data, [])
@@ -176,7 +207,7 @@ compile(Template, Data) ->
 %% '''
 %% Data support assoc list or maps (OTP17 or later). <br />
 %% All key in assoc list or maps MUST be same type.
--spec compile(template(), data(), [option()]) -> binary().
+-spec compile(template(), data(), [compile_option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
     case check_data_type(Data) of
         false -> error(function_clause, [T, Data]);
@@ -245,14 +276,13 @@ compile_impl([B1 | [_|_] = T], Map, Result, #?MODULE{indents = Indents} = State)
 compile_impl([Bin | T], Map, Result, State) ->
     compile_impl(T, Map, [Bin | Result], State).
 
-%% @see parse_binary/1
--spec parse_binary_impl(state(), Input | template()) -> template() when
-      Input :: binary().
-parse_binary_impl(#state{partials = []}, Template = #?MODULE{}) ->
+%% @doc Parse remaining partials in State. It returns {@link template/0}.
+-spec parse_remaining_partials(state(), template(), [parse_option()]) -> template().
+parse_remaining_partials(#state{partials = []}, Template = #?MODULE{}, _Options) ->
     Template;
-parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MODULE{partials = Partials}) ->
+parse_remaining_partials(State = #state{partials = [P | PartialKeys]}, Template = #?MODULE{partials = Partials}, Options) ->
     case proplists:is_defined(P, Partials) of
-        true  -> parse_binary_impl(State#state{partials = PartialKeys}, Template);
+        true  -> parse_remaining_partials(State#state{partials = PartialKeys}, Template, Options);
         false ->
             Filename0 = <<P/binary, ".mustache">>,
             Dirname   = State#state.dirname,
@@ -260,14 +290,15 @@ parse_binary_impl(State = #state{partials = [P | PartialKeys]}, Template = #?MOD
             case file:read_file(Filename) of
                 {ok, Input} ->
                     {State1, Data} = parse(State, Input),
-                    parse_binary_impl(State1, Template#?MODULE{partials = [{P, Data} | Partials]});
-                _ ->
-                    parse_binary_impl(State#state{partials = PartialKeys}, Template#?MODULE{partials = []})
+                    parse_remaining_partials(State1, Template#?MODULE{partials = [{P, Data} | Partials]}, Options);
+                {error, Reason} ->
+                    case ?RAISE_ON_PARTIAL_MISS_ENABLED(Options) of
+                        true  -> error({?FILE_ERROR, P, Reason});
+                        false -> parse_remaining_partials(State#state{partials = PartialKeys},
+                                                          Template#?MODULE{partials = [P | Partials]}, Options)
+                    end
             end
-    end;
-parse_binary_impl(State, Input) ->
-    {State1, Data} = parse(State, Input),
-    parse_binary_impl(State1, #?MODULE{data = Data}).
+    end.
 
 %% @doc Analyze the syntax of the mustache.
 -spec parse(state(), binary()) -> {#state{}, [tag()]}.
