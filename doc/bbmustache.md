@@ -42,12 +42,9 @@ assoc_data() = [{atom(), <a href="#type-data_value">data_value()</a>}] | [{binar
 compile_option() = {key_type, atom | binary | string} | raise_on_context_miss | {escape_fun, fun((binary()) -&gt; binary())}
 </code></pre>
 
- - key_type:
--- Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
-- raise_on_context_miss:
--- If key exists in template does not exist in data, it will throw an exception (error).
-- escape_fun:
--- Specify your own escape function.
+ - key_type: Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
+- raise_on_context_miss: If key exists in template does not exist in data, it will throw an exception (error).
+- escape_fun: Specify your own escape function.
 
 
 
@@ -76,10 +73,10 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 
 
 <pre><code>
-option() = <a href="#type-render_option">render_option()</a>
+option() = <a href="#type-compile_option">compile_option()</a>
 </code></pre>
 
- **Depreacted**
+ This type has been depreacted since 1.6.0. It will remove in 2.0.0.
 
 
 
@@ -90,8 +87,7 @@ option() = <a href="#type-render_option">render_option()</a>
 parse_option() = raise_on_partial_miss
 </code></pre>
 
- - raise_on_partial_miss
--- If template using partials does not found, it will throw an exception (error).
+ - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
 
 
 

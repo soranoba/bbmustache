@@ -87,7 +87,8 @@
           data               :: [tag()],
 
           partials      = [] :: [{key(), [tag()]} | key()],
-          %% When it include key(), The key already parsed but its file does not exist.
+          %% The `{key(), [tag()]}` indicates that `key()` already parsed and `[tag()]` is the result of parsing.
+          %% The `key()` indicates that the file did not exist.
 
           options       = [] :: [compile_option()],
           indents       = [] :: [binary()],
@@ -117,25 +118,22 @@
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
 -type parse_option() :: raise_on_partial_miss.
-%% - raise_on_partial_miss
-%%    -- If template using partials does not found, it will throw an exception (error).
+%% - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
 
 -type compile_option() :: {key_type, atom | binary | string}
                        | raise_on_context_miss
                        | {escape_fun, fun((binary()) -> binary())}.
-%% - key_type:
-%%    -- Specify the type of the key in {@link data/0}. Default value is `string'.
-%% - raise_on_context_miss:
-%%    -- If key exists in template does not exist in data, it will throw an exception (error).
-%% - escape_fun:
-%%    -- Specify your own escape function.
+%% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
+%% - raise_on_context_miss: If key exists in template does not exist in data, it will throw an exception (error).
+%% - escape_fun: Specify your own escape function.
 
 -type render_option() :: compile_option() | parse_option().
 %% @see compile_option/0
 %% @see parse_option/0
 
--type option() :: render_option().
-%% **Depreacted**
+-type option() :: compile_option().
+%% This type has been depreacted since 1.6.0. It will remove in 2.0.0.
+%% @see compile_option/0
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
