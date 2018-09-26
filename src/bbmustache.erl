@@ -426,7 +426,7 @@ parse_delimiter(State0, ParseDelimiterBin, NextBin, Result) ->
 %% 3> split_tag(State, <<"...">>)
 %% [<<"...">>]
 %% '''
--spec split_tag(state(), binary()) -> [binary()].
+-spec split_tag(state(), binary()) -> [binary(), ...].
 split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
     case binary:match(Bin, StartDelimiter) of
         nomatch ->
@@ -485,7 +485,7 @@ standalone(State, Post0, Result0) ->
     end.
 
 %% @doc If the binary is repeatedly the character, return true. Otherwise, return false.
--spec repeatedly_binary(binary(), char()) -> boolean().
+-spec repeatedly_binary(binary(), byte()) -> boolean().
 repeatedly_binary(<<X, Rest/binary>>, X) ->
     repeatedly_binary(Rest, X);
 repeatedly_binary(<<>>, _) ->
@@ -568,11 +568,11 @@ to_iodata(X) ->
     X.
 
 %% @doc string or binary to binary
--spec to_binary(binary() | string()) -> binary().
+-spec to_binary(binary() | [byte()]) -> binary().
 to_binary(Bin) when is_binary(Bin) ->
     Bin;
-to_binary(Str) when is_list(Str) ->
-    list_to_binary(Str).
+to_binary(Bytes) when is_list(Bytes) ->
+    list_to_binary(Bytes).
 
 %% @doc HTML Escape
 -spec escape(binary()) -> binary().
@@ -580,7 +580,7 @@ escape(Bin) ->
     << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
 
 %% @doc escape a character if needed.
--spec escape_char(0..16#FFFF) -> binary().
+-spec escape_char(byte()) -> <<_:8, _:_*8>>.
 escape_char($<) -> <<"&lt;">>;
 escape_char($>) -> <<"&gt;">>;
 escape_char($&) -> <<"&amp;">>;
@@ -633,7 +633,7 @@ get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = S
     end.
 
 %% @doc find the value of the specified key from {@link data/0}
--spec find_data(data_key(), data()) -> {ok, Value ::term()} | error.
+-spec find_data(data_key(), data() | term()) -> {ok, Value ::term()} | error.
 -ifdef(namespaced_types).
 find_data(Key, Map) when is_map(Map) ->
     maps:find(Key, Map);
