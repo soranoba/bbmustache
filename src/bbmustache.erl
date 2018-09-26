@@ -52,6 +52,8 @@
 -define(RAISE_ON_PARTIAL_MISS_ENABLED(Options),
         proplists:get_bool(raise_on_partial_miss, Options)).
 
+-define(PARSE_OPTIONS, [raise_on_partial_miss]).
+
 -type key()    :: binary().
 %% Key MUST be a non-whitespace character sequence NOT containing the current closing delimiter. <br />
 %%
@@ -159,7 +161,8 @@ render(Bin, Data) ->
 %% @equiv compile(parse_binary(Bin), Data, Options)
 -spec render(binary(), data(), [render_option()]) -> binary().
 render(Bin, Data, Options) ->
-    compile(parse_binary(Bin, Options), Data, Options).
+    {ParseOptions, CompileOptions} = lists:partition(fun(X) -> lists:member(X, ?PARSE_OPTIONS) end, Options),
+    compile(parse_binary(Bin, ParseOptions), Data, CompileOptions).
 
 %% @equiv parse_binary(Bin, [])
 -spec parse_binary(binary()) -> template().
