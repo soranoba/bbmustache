@@ -1,8 +1,3 @@
-APP=bbmustache
-DIALYZER_OPTS=-Werror_handling -Wrace_conditions -Wunmatched_returns
-
-LIBS=$(ERL_LIBS):_build/dev/lib
-
 .PHONY: ct
 all: compile eunit ct xref dialyze edoc
 
