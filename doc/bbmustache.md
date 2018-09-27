@@ -76,7 +76,7 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 option() = <a href="#type-compile_option">compile_option()</a>
 </code></pre>
 
- This type has been depreacted since 1.6.0. It will remove in 2.0.0.
+ This type has been deprecated since 1.6.0. It will remove in 2.0.0.
 
 
 
@@ -146,8 +146,8 @@ Embed the data in the template.
   <<"Alice">>
 ```
 
-Data support assoc list or maps (OTP17 or later). <br />
-All key in assoc list or maps MUST be same type.
+Data support an associative array or a map. <br />
+All keys MUST be same type.
 
 <a name="parse_binary-1"></a>
 
