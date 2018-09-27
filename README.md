@@ -9,6 +9,7 @@ Binary pattern match Based Mustache template engine for Erlang/OTP.
 - Binary pattern match based mustache template engine for Erlang/OTP.
  - Do not use a regular expression !!
 - Support maps and associative arrays.
+- Officially support is OTP17 or later.
 
 ### What is Mustach ?
 A logic-less templates.
@@ -47,11 +48,9 @@ Add the following settings.
 {deps, [bbmustache]}.
 ```
 
-If you don't use the rebar and use the OTP17 or later, this library should be compile with `-Dnamespaced_types`.
-
 ### How to use simple Mustache
 
-Map (R17 or later)
+Map
 ```erlang
 1> bbmustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
 <<"hoge">>
@@ -84,9 +83,8 @@ Associative array
 ```
 
 ### More information
-Please refer to [the man page](http://mustache.github.io/mustache.5.html) and [the spec](https://github.com/mustache/spec) of mustache as the need arises.<br />
-
-Please see [this](benchmarks/README.md) for a list of features that bbmustache supports.
+Please refer to [ManPage](http://mustache.github.io/mustache.5.html) and [Specification](https://github.com/mustache/spec) as the need arises.<br />
+For the functions supported by this library, please see [here](benchmarks/README.md).
 
 ## FAQ
 

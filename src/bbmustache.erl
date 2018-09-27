@@ -26,7 +26,7 @@
 -export_type([
               template/0,
               data/0,
-              option/0, % depreacted
+              option/0, % deprecated
               compile_option/0,
               parse_option/0,
               render_option/0
@@ -132,7 +132,7 @@
 %% @see parse_option/0
 
 -type option() :: compile_option().
-%% This type has been depreacted since 1.6.0. It will remove in 2.0.0.
+%% This type has been deprecated since 1.6.0. It will remove in 2.0.0.
 %% @see compile_option/0
 
 -ifdef(namespaced_types).
@@ -141,7 +141,7 @@
 -else.
 -type data()      :: assoc_data().
 -endif.
-%% All key in assoc list or maps must be same type.
+%% All keys MUST be same type.
 %% @see render/2
 %% @see compile/2
 
@@ -205,8 +205,8 @@ compile(Template, Data) ->
 %% 2> bbmustache:compile(Template, #{"name" => "Alice"}).
 %% <<"Alice">>
 %% '''
-%% Data support assoc list or maps (OTP17 or later). <br />
-%% All key in assoc list or maps MUST be same type.
+%% Data support an associative array or a map. <br />
+%% All keys MUST be same type.
 -spec compile(template(), data(), [compile_option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
     case check_data_type(Data) of
