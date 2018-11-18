@@ -7,11 +7,11 @@ Binary pattern match Based Mustache template engine for Erlang/OTP.
 
 ## Overview
 - Binary pattern match based mustache template engine for Erlang/OTP.
- - Do not use a regular expression !!
+  - It means do not use regular expressions.
 - Support maps and associative arrays.
 - Officially support is OTP17 or later.
 
-### What is Mustach ?
+### What is Mustache ?
 A logic-less templates.
 - [{{mustache}}](http://mustache.github.io/)
 
@@ -25,7 +25,6 @@ $ make start
 Erlang/OTP 17 [erts-6.3] [source-f9282c6] [64-bit] [smp:4:4] [async-threads:10] [hipe] [kernel-poll:true]
 
 Eshell V6.3  (abort with ^G)
-1> {ok,[bbmustache]}
 1> bbmustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
 <<"hoge">>
 2> bbmustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
@@ -83,36 +82,59 @@ Associative array
 ```
 
 ### More information
-Please refer to [ManPage](http://mustache.github.io/mustache.5.html) and [Specification](https://github.com/mustache/spec) as the need arises.<br />
-For the functions supported by this library, please see [here](benchmarks/README.md).
+- For the alias of mustache, Please refer to [ManPage](http://mustache.github.io/mustache.5.html) and [Specification](https://github.com/mustache/spec)
+- For the options of this library, please see [doc](doc)
+- For the functions supported by this library, please see [here](benchmarks/README.md)
 
 ## FAQ
 
 ### Avoid http escaping
 
 ```erlang
-%% please use {{{tag}}}
-1> bbmustache:render(<<"<h1>{{{tag}}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
+%% Please use `{{{tag}}}`
+1> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{"title" => "I like Erlang & mustache"}).
+<<"<h1>I like Erlang & mustache</h1>">>
+
+%% If you should not want to use `{{{tag}}}`, escape_fun can be use.
+1> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{"title" => "I like Erlang & mustache"}, [{escape_fun, fun(X) -> X end}]).
 <<"<h1>I like Erlang & mustache</h1>">>
 ```
 
-### Want to use symbol of tag
+### Already used `{` and `}` for other uses (like escript)
 
 ```erlang
-1> bbmustache:render(<<"{{=<< >>=}} <<tag>>, <<={{ }}=>> {{tag}}">>, #{"tag" => "hi"}).
-<<" hi,  hi">>
+1> io:format(bbmustache:render(<<"
+1> {{=<< >>=}}
+1> {deps, [
+1>   <<#deps>>
+1>   {<<name>>, \"<<version>>\"}<<^last?>>,<</last?>>
+1>   <</deps>>
+1> ]}.
+1> ">>, #{"deps" => [
+1>   #{"name" => "bbmustache", "version" => "1.6.0"},
+1>   #{"name" => "jsone", "version" => "1.4.6", "last?" => true}
+1> ]})).
+
+{deps, [
+  {bbmustache, "1.6.0"},
+  {jsone, "1.4.6"}
+]}.
+ok
 ```
 
-### Want to change the type of the key
+### Want to use something other than string for key
 
 ```erlang
-1> bbmustache:render(<<"{{tag}}">>, #{tag => "hi"}, [{key_type, atom}]).
-<<"hi">>
+1> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{title => "I like Erlang & mustache"}, [{key_type, atom}]).
+<<"<h1>I like Erlang & mustache</h1>">>
+
+2> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => "I like Erlang & mustache"}, [{key_type, binary}]).
+<<"<h1>I like Erlang & mustache</h1>">>
 ```
 
 ## Attention
 - Lambda expression is included wasted processing.
- - Because it is optimized to `parse_string/1` + `compile/2`.
+  - Because it is optimized to `parse_binary/1` + `compile/2`.
 
 ## Comparison with other libraries
 [Benchmarks and check the reference implementation](benchmarks/README.md)
