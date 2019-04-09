@@ -21,6 +21,23 @@ parse_file_test_() ->
      {"file_not_exist (with extension)",    ?_assertError(?FILE_ERROR, bbmustache:parse_file(<<"not_exist.mustache">>))}
     ].
 
+
+custom_serializer_test_() ->
+    [
+     {"simple function replacement",
+      fun() ->
+              ?assertEqual(<<"test, test">>,
+                           bbmustache:render(<<"{{i}}, {{f}}">>,
+                                             [{"i", 1}, {"f", 1.5}, {"b", <<"hoge">>}, {"s", "fugo"}, {"a", atom}], [{value_serializer, fun(_X) -> <<"test">> end}]))
+      end},
+     {"argument modifier",
+      fun() ->
+              ?assertEqual(<<"&lt;A&amp;B&gt; , <A&B>">>,
+                           bbmustache:render(<<"{{s}} , {{{s}}}">>,
+                                             [{"s", "A&B"}], [{value_serializer, fun(X) -> "<" ++ X ++ ">" end}]))
+      end}
+    ].
+
 parse_binary_test_() ->
     [
      {"bbmustache:template/0 format check", ?NT_S([], <<>>)},
