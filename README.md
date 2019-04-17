@@ -132,6 +132,23 @@ ok
 <<"<h1>I like Erlang & mustache</h1>">>
 ```
 
+### Want to provide a custom serializer for Erlang Terms
+
+```erlang
+1> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{title => "I like Erlang & mustache"}, [{key_type, atom}, {value_serializer, fun(X) -> X end}]).
+<<"<h1>I like Erlang &amp; mustache</h1>">>
+
+2> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => "I like Erlang & mustache"}, [{key_type, binary}, {value_serializer, fun(X) -> <<"replaced">> end}]).
+<<"<h1>replaced</h1>">>
+
+3> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
+<<"<h1>{\"nested\": \"value\"}</h1>">>
+
+4> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).  
+<<"<h1>{&quot;nested&quot;:&quot;value&quot;}</h1>">>
+```
+
+
 ## Attention
 - Lambda expression is included wasted processing.
   - Because it is optimized to `parse_binary/1` + `compile/2`.

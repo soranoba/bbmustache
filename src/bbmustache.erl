@@ -20,7 +20,8 @@
          parse_file/1,
          parse_file/2,
          compile/2,
-         compile/3
+         compile/3,
+         default_value_serializer/1
         ]).
 
 -export_type([
@@ -124,10 +125,12 @@
 
 -type compile_option() :: {key_type, atom | binary | string}
                        | raise_on_context_miss
-                       | {escape_fun, fun((binary()) -> binary())}.
+                       | {escape_fun, fun((binary()) -> binary())}
+                       | {value_serializer, fun((any()) -> iodata())}.
 %% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
 %% - raise_on_context_miss: If key exists in template does not exist in data, it will throw an exception (error).
 %% - escape_fun: Specify your own escape function.
+%% - value_serializer: specify how terms are converted to iodata when templating.
 
 -type render_option() :: compile_option() | parse_option().
 %% @see compile_option/0
@@ -219,6 +222,19 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
             iolist_to_binary(lists:reverse(Ret))
     end.
 
+%% @doc Default value serializer for templtated values
+-spec default_value_serializer(number() | binary() | string() | atom()) -> iodata().
+default_value_serializer(Integer) when is_integer(Integer) ->
+    list_to_binary(integer_to_list(Integer));
+default_value_serializer(Float) when is_float(Float) ->
+    %% NOTE: It is the same behaviour as io_lib:format("~p", [Float]), but it is fast than.
+    %%       http://www.cs.indiana.edu/~dyb/pubs/FP-Printing-PLDI96.pdf
+    io_lib_format:fwrite_g(Float);
+default_value_serializer(Atom) when is_atom(Atom) ->
+    list_to_binary(atom_to_list(Atom));
+default_value_serializer(X) ->
+    X.
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Function
 %%----------------------------------------------------------------------------------------------------------------------
@@ -230,11 +246,13 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
 compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Keys} | T], Map, Result, State) ->
-    Value = iolist_to_binary(to_iodata(get_data_recursive(Keys, Map, <<>>, State))),
+    ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
+    Value = iolist_to_binary(ValueSerializer(get_data_recursive(Keys, Map, <<>>, State))),
     EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
     compile_impl(T, Map, ?ADD(EscapeFun(Value), Result), State);
 compile_impl([{'&', Keys} | T], Map, Result, State) ->
-    compile_impl(T, Map, ?ADD(to_iodata(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
+    ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
+    compile_impl(T, Map, ?ADD(ValueSerializer(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
     Value = get_data_recursive(Keys, Map, false, State),
     NestedState = State#?MODULE{context_stack = [Map | State#?MODULE.context_stack]},
@@ -553,19 +571,6 @@ remove_space_from_tail_impl([{X, Y} | T], Size) when Size =:= X + Y ->
     remove_space_from_tail_impl(T, X);
 remove_space_from_tail_impl(_, Size) ->
     Size.
-
-%% @doc term to iodata
--spec to_iodata(number() | binary() | string() | atom()) -> iodata().
-to_iodata(Integer) when is_integer(Integer) ->
-    list_to_binary(integer_to_list(Integer));
-to_iodata(Float) when is_float(Float) ->
-    %% NOTE: It is the same behaviour as io_lib:format("~p", [Float]), but it is fast than.
-    %%       http://www.cs.indiana.edu/~dyb/pubs/FP-Printing-PLDI96.pdf
-    io_lib_format:fwrite_g(Float);
-to_iodata(Atom) when is_atom(Atom) ->
-    list_to_binary(atom_to_list(Atom));
-to_iodata(X) ->
-    X.
 
 %% @doc string or binary to binary
 -spec to_binary(binary() | [byte()]) -> binary().

@@ -39,12 +39,13 @@ assoc_data() = [{atom(), <a href="#type-data_value">data_value()</a>}] | [{binar
 
 
 <pre><code>
-compile_option() = {key_type, atom | binary | string} | raise_on_context_miss | {escape_fun, fun((binary()) -&gt; binary())}
+compile_option() = {key_type, atom | binary | string} | raise_on_context_miss | {escape_fun, fun((binary()) -&gt; binary())} | {value_serializer, fun((any()) -&gt; iodata())}
 </code></pre>
 
  - key_type: Specify the type of the key in [`data/0`](#data-0). Default value is `string`.
 - raise_on_context_miss: If key exists in template does not exist in data, it will throw an exception (error).
 - escape_fun: Specify your own escape function.
+- value_serializer: specify how terms are converted to iodata when templating.
 
 
 
@@ -111,7 +112,7 @@ __abstract datatype__: `template()`
 ## Function Index ##
 
 
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Equivalent to <a href="#compile-3"><tt>compile(Template, Data, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#compile-3">compile/3</a></td><td>Embed the data in the template.</td></tr><tr><td valign="top"><a href="#parse_binary-1">parse_binary/1</a></td><td>Equivalent to <a href="#parse_binary-2"><tt>parse_binary(Bin, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#parse_binary-2">parse_binary/2</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a binary.</td></tr><tr><td valign="top"><a href="#parse_file-1">parse_file/1</a></td><td>Equivalent to <a href="#parse_file-2"><tt>parse_file(Filename, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#parse_file-2">parse_file/2</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a file.</td></tr><tr><td valign="top"><a href="#render-2">render/2</a></td><td>Equivalent to <a href="#render-3"><tt>render(Bin, Data, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#render-3">render/3</a></td><td>Equivalent to <a href="#compile-3"><tt>compile(parse_binary(Bin), Data, Options)</tt></a>.</td></tr></table>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Equivalent to <a href="#compile-3"><tt>compile(Template, Data, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#compile-3">compile/3</a></td><td>Embed the data in the template.</td></tr><tr><td valign="top"><a href="#default_value_serializer-1">default_value_serializer/1</a></td><td>Default value serializer for templtated values.</td></tr><tr><td valign="top"><a href="#parse_binary-1">parse_binary/1</a></td><td>Equivalent to <a href="#parse_binary-2"><tt>parse_binary(Bin, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#parse_binary-2">parse_binary/2</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a binary.</td></tr><tr><td valign="top"><a href="#parse_file-1">parse_file/1</a></td><td>Equivalent to <a href="#parse_file-2"><tt>parse_file(Filename, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#parse_file-2">parse_file/2</a></td><td>Create a <a href="#template-0"><code>template/0</code></a> from a file.</td></tr><tr><td valign="top"><a href="#render-2">render/2</a></td><td>Equivalent to <a href="#render-3"><tt>render(Bin, Data, [])</tt></a>.</td></tr><tr><td valign="top"><a href="#render-3">render/3</a></td><td>Equivalent to <a href="#compile-3"><tt>compile(parse_binary(Bin), Data, Options)</tt></a>.</td></tr></table>
 
 
 <a name="functions"></a>
@@ -148,6 +149,17 @@ Embed the data in the template.
 
 Data support an associative array or a map. <br />
 All keys MUST be same type.
+
+<a name="default_value_serializer-1"></a>
+
+### default_value_serializer/1 ###
+
+<pre><code>
+default_value_serializer(Integer::number() | binary() | string() | atom()) -&gt; iodata()
+</code></pre>
+<br />
+
+Default value serializer for templtated values
 
 <a name="parse_binary-1"></a>
 
