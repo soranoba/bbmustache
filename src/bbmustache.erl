@@ -232,6 +232,8 @@ default_value_serializer(Float) when is_float(Float) ->
     io_lib_format:fwrite_g(Float);
 default_value_serializer(Atom) when is_atom(Atom) ->
     list_to_binary(atom_to_list(Atom));
+default_value_serializer(X) when is_map(X); is_tuple(X) ->
+    error(unsupported_term, [X]);
 default_value_serializer(X) ->
     X.
 
