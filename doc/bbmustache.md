@@ -66,6 +66,27 @@ If you want to change this, you need to specify `key_type` in [`compile_option/0
 
 
 
+### <a name="type-data_value">data_value()</a> ###
+
+
+<pre><code>
+data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | fun((<a href="#type-data">data()</a>, function()) -&gt; iodata())
+</code></pre>
+
+ Function is intended to support a lambda expression.
+
+
+
+### <a name="type-fun_data">fun_data()</a> ###
+
+
+<pre><code>
+fun_data() = fun((<a href="#type-data_key">data_key()</a>) -&gt; {ok, <a href="#type-data_value">data_value()</a>} | error)
+</code></pre>
+
+
+
+
 ### <a name="type-key">key()</a> ###
 
 
@@ -110,7 +131,7 @@ parse_option() = {partial_file_reader, fun((Dirname::binary(), <a href="#type-ke
 
 
 <pre><code>
-recursive_data() = [{<a href="#type-data_key">data_key()</a>, term()}]
+recursive_data() = [{<a href="#type-data_key">data_key()</a>, term()}] | <a href="#type-fun_data">fun_data()</a>
 </code></pre>
 
 
