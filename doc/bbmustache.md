@@ -53,9 +53,20 @@ compile_option() = {key_type, atom | binary | string} | raise_on_context_miss | 
 
 
 <pre><code>
-data() = <a href="#type-assoc_data">assoc_data()</a>
+data() = <a href="#type-assoc_data">assoc_data()</a> | <a href="#type-fun_data">fun_data()</a>
 </code></pre>
 
+
+
+
+### <a name="type-data_key">data_key()</a> ###
+
+
+<pre><code>
+data_key() = atom() | binary() | string()
+</code></pre>
+
+ You can choose one from these as the type of key in [`data/0`](#data-0).
 
 
 
@@ -67,6 +78,16 @@ data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | 
 </code></pre>
 
  Function is intended to support a lambda expression.
+
+
+
+### <a name="type-fun_data">fun_data()</a> ###
+
+
+<pre><code>
+fun_data() = fun((<a href="#type-data_key">data_key()</a>) -&gt; {ok, <a href="#type-data_value">data_value()</a>} | error)
+</code></pre>
+
 
 
 

@@ -120,6 +120,8 @@
 
 -type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
 
+-type fun_data() :: fun((data_key()) -> {ok, data_value()} | error).
+
 -type parse_option() :: raise_on_partial_miss.
 %% - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
 
@@ -142,9 +144,9 @@
 
 -ifdef(namespaced_types).
 -type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
--type data()      :: maps_data() | assoc_data().
+-type data()      :: maps_data() | assoc_data() | fun_data().
 -else.
--type data()      :: assoc_data().
+-type data()      :: assoc_data() | fun_data().
 -endif.
 %% All keys MUST be same type.
 %% @see render/2
@@ -644,12 +646,16 @@ get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = S
 -ifdef(namespaced_types).
 find_data(Key, Map) when is_map(Map) ->
     maps:find(Key, Map);
+find_data(Key, Fun) when is_function(Fun, 1) ->
+    Fun(Key);
 find_data(Key, AssocList) ->
     case proplists:lookup(Key, AssocList) of
         none   -> error;
         {_, V} -> {ok, V}
     end.
 -else.
+find_data(Key, Fun) when is_function(Fun, 1) ->
+    Fun(Key);
 find_data(Key, AssocList) ->
     case proplists:lookup(Key, AssocList) of
         none   -> error;
@@ -664,9 +670,10 @@ find_data(Key, AssocList) ->
 -ifdef(namespaced_types).
 check_data_type([])                               -> maybe;
 check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
-check_data_type(Map)                              -> is_map(Map).
+check_data_type(Map) when is_map(Map)             -> true;
+check_data_type(Fun)                              -> is_function(Fun, 1).
 -else.
 check_data_type([])                               -> maybe;
 check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
-check_data_type(_)                                -> false.
+check_data_type(Fun)                              -> is_function(Fun, 1).
 -endif.

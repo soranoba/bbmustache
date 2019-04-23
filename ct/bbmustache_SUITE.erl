@@ -35,6 +35,7 @@ all() ->
     [
      {group, assoc_list},
      {group, maps},
+     {group, funs},
      {group, assoc_list_into_maps},
      {group, maps_into_assoc_list},
      {group, atom_key},
@@ -45,6 +46,7 @@ groups() ->
     [
      {assoc_list,           [], ?ALL_TEST},
      {maps,                 [], ?ALL_TEST},
+     {funs,                 [], ?ALL_TEST},
      {assoc_list_into_maps, [], ?ALL_TEST},
      {maps_into_assoc_list, [], ?ALL_TEST},
      {atom_key,             [], ?ALL_TEST},
@@ -63,6 +65,8 @@ init_per_group(assoc_list, Config) ->
 init_per_group(maps, _Config) ->
     ?OTP17([{data_conv, fun list_to_maps_recursive/1} | _Config],
            {skip, map_is_unsupported});
+init_per_group(funs, Config) ->
+    [{data_conv, fun(X) -> mk_lookup_fun(X) end} | Config];
 init_per_group(assoc_list_into_maps, _Config) ->
     ?OTP17([{data_conv, fun maps:from_list/1} | _Config],
            {skip, map_is_unsupported});
@@ -249,3 +253,12 @@ key_conv_recursive([{_, _} | _] = AssocList, ConvFun) ->
                 end, [], AssocList);
 key_conv_recursive(Other, _) ->
     Other.
+
+%% @doc Wrap input into a closure
+mk_lookup_fun(Data) ->
+    fun(Key) ->
+        case proplists:lookup(Key, Data) of
+            none -> error;
+            {_, V} -> {ok, V}
+        end
+    end.
