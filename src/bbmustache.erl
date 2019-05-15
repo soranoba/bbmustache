@@ -665,13 +665,13 @@ find_data(Key, AssocList) ->
 check_data_type([])                               -> maybe;
 check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
 check_data_type(V) when is_map(V)                 -> true;
-check_data_type(V) when is_binary(V)              -> true;
-check_data_type(V) when is_list(V)                -> list;
+check_data_type(V) when is_binary(V)              -> maybe;
+check_data_type(V) when is_list(V)                -> maybe;
 check_data_type(_)                                -> false.
 -else.
 check_data_type([])                               -> maybe;
 check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
-check_data_type(V) when is_binary(V)              -> true;
-check_data_type(V) when is_list(V)                -> list;
+check_data_type(V) when is_binary(V)              -> maybe;
+check_data_type(V) when is_list(V)                -> maybe;
 check_data_type(_)                                -> false.
 -endif.
