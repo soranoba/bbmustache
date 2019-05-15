@@ -132,7 +132,7 @@ top_level_context_render_test_() ->
       end},
      {"top-level map",
       fun() ->
-              ?assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}))
+              ?assertEqual(<<"yes">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}, [{value_serializer, fun(#{"a" := "1"}) -> <<"yes">> end}]))
       end}
     ].
 
