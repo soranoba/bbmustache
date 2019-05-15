@@ -120,6 +120,22 @@ assoc_list_render_test_() ->
       end}
     ].
 
+top_level_context_render_test_() ->
+    [
+     {"top-level string",
+      fun() ->
+              ?assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, <<"world">>))
+      end},
+     {"top-level array",
+      fun() ->
+              ?assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{#.}}{{.}}, {{/.}}">>, [1, 2, 3]))
+      end},
+     {"top-level map",
+      fun() ->
+              ?assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}))
+      end}
+    ].
+
 atom_and_binary_key_test_() ->
     [
      {"atom key",
@@ -127,7 +143,7 @@ atom_and_binary_key_test_() ->
               F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
               ?assertEqual(<<"<b>Willy is awesome.</b>">>,
                            bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy_atom}}{{/wrapped}}">>,
-                                           [{name, "Willy"}, {wrapped, F}], [{key_type, atom}])),
+                                             [{name, "Willy"}, {wrapped, F}], [{key_type, atom}])),
               ?assertError(_, binary_to_existing_atom(<<"dummy_atom">>, utf8))
       end},
      {"binary key",

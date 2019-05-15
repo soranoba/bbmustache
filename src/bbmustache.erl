@@ -664,9 +664,14 @@ find_data(Key, AssocList) ->
 -ifdef(namespaced_types).
 check_data_type([])                               -> maybe;
 check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
-check_data_type(Map)                              -> is_map(Map).
+check_data_type(V) when is_map(V)                 -> true;
+check_data_type(V) when is_binary(V)              -> true;
+check_data_type(V) when is_list(V)                -> list;
+check_data_type(_)                                -> false.
 -else.
 check_data_type([])                               -> maybe;
 check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
+check_data_type(V) when is_binary(V)              -> true;
+check_data_type(V) when is_list(V)                -> list;
 check_data_type(_)                                -> false.
 -endif.
