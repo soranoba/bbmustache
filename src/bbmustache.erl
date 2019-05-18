@@ -27,6 +27,7 @@
 -export_type([
               template/0,
               data/0,
+              recursive_data/0,
               option/0, % deprecated
               compile_option/0,
               parse_option/0,
@@ -112,14 +113,6 @@
         }).
 -type state() :: #state{}.
 
--type data_key()   :: atom() | binary() | string().
-%% You can choose one from these as the type of key in {@link data/0}.
-
--type data_value() :: data() | iodata() | number() | atom() | fun((data(), function()) -> iodata()).
-%% Function is intended to support a lambda expression.
-
--type assoc_data() :: [{atom(), data_value()}] | [{binary(), data_value()}] | [{string(), data_value()}].
-
 -type parse_option() :: raise_on_partial_miss.
 %% - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
 
@@ -140,15 +133,24 @@
 %% This type has been deprecated since 1.6.0. It will remove in 2.0.0.
 %% @see compile_option/0
 
--ifdef(namespaced_types).
--type maps_data() :: #{atom() => data_value()} | #{binary() => data_value()} | #{string() => data_value()}.
--type data()      :: maps_data() | assoc_data().
--else.
--type data()      :: assoc_data().
--endif.
-%% All keys MUST be same type.
+-type data() :: term().
+%% Beginners should consider {@link data/0} as {@link recursive_data/0}.
+%% By specifying options, the type are greatly relaxed and equal to `term/0'.
+%%
 %% @see render/2
 %% @see compile/2
+
+-type data_key() :: atom() | binary() | string().
+%% You can choose one from these as the type of key in {@link recursive_data/0}.
+%% The default is `string/0'.
+%% If you want to change this, you need to specify `key_type' in {@link compile_option/0}.
+
+-ifdef(namespaced_types).
+-type recursive_data() :: #{data_key() => term()} | [{data_key(), term()}].
+-else.
+-type recursive_data() :: [{data_key(), term()}].
+-endif.
+%% It is a part of {@link data/0} that can have child elements.
 
 -type endtag()    :: {endtag, {state(), [key()], LastTagSize :: non_neg_integer(), Rest :: binary(), Result :: [tag()]}}.
 
@@ -215,12 +217,8 @@ compile(Template, Data) ->
 %% All keys MUST be same type.
 -spec compile(template(), data(), [compile_option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
-    case check_data_type(Data) of
-        false -> error(function_clause, [T, Data]);
-        _     ->
-            Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = []}),
-            iolist_to_binary(lists:reverse(Ret))
-    end.
+    Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = []}),
+    iolist_to_binary(lists:reverse(Ret)).
 
 %% @doc Default value serializer for templtated values
 -spec default_value_serializer(number() | binary() | string() | atom()) -> iodata().
@@ -247,57 +245,57 @@ default_value_serializer(X) ->
 -spec compile_impl(Template :: [tag()], data(), Result :: iodata(), template()) -> iodata().
 compile_impl([], _, Result, _) ->
     Result;
-compile_impl([{n, Keys} | T], Map, Result, State) ->
+compile_impl([{n, Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
-    Value = iolist_to_binary(ValueSerializer(get_data_recursive(Keys, Map, <<>>, State))),
+    Value = iolist_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
     EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
-    compile_impl(T, Map, ?ADD(EscapeFun(Value), Result), State);
-compile_impl([{'&', Keys} | T], Map, Result, State) ->
+    compile_impl(T, Data, ?ADD(EscapeFun(Value), Result), State);
+compile_impl([{'&', Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
-    compile_impl(T, Map, ?ADD(ValueSerializer(get_data_recursive(Keys, Map, <<>>, State)), Result), State);
-compile_impl([{'#', Keys, Tags, Source} | T], Map, Result, State) ->
-    Value = get_data_recursive(Keys, Map, false, State),
-    NestedState = State#?MODULE{context_stack = [Map | State#?MODULE.context_stack]},
-    case check_data_type(Value) of
-        true ->
-            compile_impl(T, Map, compile_impl(Tags, Value, Result, NestedState), State);
-        _ when is_list(Value) ->
-            compile_impl(T, Map, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
+    compile_impl(T, Data, ?ADD(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State)), Result), State);
+compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
+    Value = get_data_recursive(Keys, Data, false, State),
+    NestedState = State#?MODULE{context_stack = [Data | State#?MODULE.context_stack]},
+    case is_recursive_data(Value) of
+      true ->
+            compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State);
+      _ when is_list(Value) ->
+            compile_impl(T, Data, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
                                              Result, Value), State);
-        _ when Value =:= false ->
-            compile_impl(T, Map, Result, State);
-        _ when is_function(Value, 2) ->
-            Ret = Value(Source, fun(Text) -> render(Text, Map, State#?MODULE.options) end),
-            compile_impl(T, Map, ?ADD(Ret, Result), State);
-        _ ->
-            compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State)
+      _ when Value =:= false ->
+            compile_impl(T, Data, Result, State);
+      _ when is_function(Value, 2) ->
+            Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
+            compile_impl(T, Data, ?ADD(Ret, Result), State);
+      _ ->
+            compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State)
     end;
-compile_impl([{'^', Keys, Tags} | T], Map, Result, State) ->
-    Value = get_data_recursive(Keys, Map, false, State),
+compile_impl([{'^', Keys, Tags} | T], Data, Result, State) ->
+    Value = get_data_recursive(Keys, Data, false, State),
     case Value =:= [] orelse Value =:= false of
-        true  -> compile_impl(T, Map, compile_impl(Tags, Map, Result, State), State);
-        false -> compile_impl(T, Map, Result, State)
+        true  -> compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State);
+        false -> compile_impl(T, Data, Result, State)
     end;
-compile_impl([{'>', Key, Indent} | T], Map, Result0, #?MODULE{partials = Partials} = State) ->
+compile_impl([{'>', Key, Indent} | T], Data, Result0, #?MODULE{partials = Partials} = State) ->
     case proplists:get_value(Key, Partials) of
         undefined ->
             case ?RAISE_ON_CONTEXT_MISS_ENABLED(State#?MODULE.options) of
                 true  -> error(?CONTEXT_MISSING_ERROR({?FILE_ERROR, Key}));
-                false -> compile_impl(T, Map, Result0, State)
+                false -> compile_impl(T, Data, Result0, State)
             end;
         PartialT  ->
             Indents = State#?MODULE.indents ++ [Indent],
-            Result1 = compile_impl(PartialT, Map, [Indent | Result0], State#?MODULE{indents = Indents}),
-            compile_impl(T, Map, Result1, State)
+            Result1 = compile_impl(PartialT, Data, [Indent | Result0], State#?MODULE{indents = Indents}),
+            compile_impl(T, Data, Result1, State)
     end;
-compile_impl([B1 | [_|_] = T], Map, Result, #?MODULE{indents = Indents} = State) when Indents =/= [] ->
+compile_impl([B1 | [_|_] = T], Data, Result, #?MODULE{indents = Indents} = State) when Indents =/= [] ->
     %% NOTE: indent of partials
     case byte_size(B1) > 0 andalso binary:last(B1) of
-        $\n -> compile_impl(T, Map, [Indents, B1 | Result], State);
-        _   -> compile_impl(T, Map, [B1 | Result], State)
+        $\n -> compile_impl(T, Data, [Indents, B1 | Result], State);
+        _   -> compile_impl(T, Data, [B1 | Result], State)
     end;
-compile_impl([Bin | T], Map, Result, State) ->
-    compile_impl(T, Map, [Bin | Result], State).
+compile_impl([Bin | T], Data, Result, State) ->
+    compile_impl(T, Data, [Bin | Result], State).
 
 %% @doc Parse remaining partials in State. It returns {@link template/0}.
 -spec parse_remaining_partials(state(), template(), [parse_option()]) -> template().
@@ -630,7 +628,7 @@ get_data_recursive_impl([], Data, _) ->
 get_data_recursive_impl([<<".">>], Data, _) ->
     {ok, Data};
 get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = Stack} = State) ->
-    case check_data_type(Data) =:= true andalso find_data(convert_keytype(Key, State), Data) of
+    case is_recursive_data(Data) andalso find_data(convert_keytype(Key, State), Data) of
         {ok, ChildData} ->
             get_data_recursive_impl(RestKey, ChildData, State#?MODULE{context_stack = []});
         _ when Stack =:= [] ->
@@ -639,39 +637,35 @@ get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = S
             get_data_recursive_impl(Keys, hd(Stack), State#?MODULE{context_stack = tl(Stack)})
     end.
 
-%% @doc find the value of the specified key from {@link data/0}
--spec find_data(data_key(), data() | term()) -> {ok, Value ::term()} | error.
+%% @doc find the value of the specified key from {@link recursive_data/0}
+-spec find_data(data_key(), recursive_data() | term()) -> {ok, Value :: term()} | error.
 -ifdef(namespaced_types).
 find_data(Key, Map) when is_map(Map) ->
     maps:find(Key, Map);
-find_data(Key, AssocList) ->
+find_data(Key, AssocList) when is_list(AssocList) ->
     case proplists:lookup(Key, AssocList) of
         none   -> error;
         {_, V} -> {ok, V}
-    end.
+    end;
+find_data(_, _) ->
+    error.
 -else.
 find_data(Key, AssocList) ->
     case proplists:lookup(Key, AssocList) of
         none   -> error;
         {_, V} -> {ok, V}
-    end.
+    end;
+find_data(_, _) ->
+    error.
 -endif.
 
-%% @doc check whether the type of {@link data/0}
-%%
-%% maybe: There is also the possibility of iolist
--spec check_data_type(data() | term()) -> boolean() | maybe.
+%% @doc When the value is {@link recursive_data/0}, it returns true. Otherwise it returns false.
+-spec is_recursive_data(recursive_data() | term()) -> boolean().
 -ifdef(namespaced_types).
-check_data_type([])                               -> maybe;
-check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
-check_data_type(V) when is_map(V)                 -> true;
-check_data_type(V) when is_binary(V)              -> true;
-check_data_type(V) when is_list(V)                -> list;
-check_data_type(_)                                -> false.
+is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
+is_recursive_data(V) when is_map(V)                 -> true;
+is_recursive_data(_)                                -> false.
 -else.
-check_data_type([])                               -> maybe;
-check_data_type([Tuple | _]) when is_tuple(Tuple) -> true;
-check_data_type(V) when is_binary(V)              -> true;
-check_data_type(V) when is_list(V)                -> list;
-check_data_type(_)                                -> false.
+is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
+is_recursive_data(_)                                -> false.
 -endif.

@@ -126,6 +126,10 @@ top_level_context_render_test_() ->
       fun() ->
               ?assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, <<"world">>))
       end},
+     {"top-level integer",
+      fun() ->
+              ?assertEqual(<<"1">>, bbmustache:render(<<"{{.}}">>, 1))
+      end},
      {"top-level array",
       fun() ->
               ?assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{#.}}{{.}}, {{/.}}">>, [1, 2, 3]))
@@ -153,11 +157,6 @@ atom_and_binary_key_test_() ->
                            bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
                                              [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
       end}
-    ].
-
-unsupported_data_test_() ->
-    [
-     {"dict", ?_assertError(function_clause, bbmustache:render(<<>>, dict:new()))}
     ].
 
 raise_on_context_miss_test_() ->

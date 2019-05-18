@@ -25,16 +25,6 @@ Please see [this](../benchmarks/README.md) for a list of features that bbmustach
 
 
 
-### <a name="type-assoc_data">assoc_data()</a> ###
-
-
-<pre><code>
-assoc_data() = [{atom(), <a href="#type-data_value">data_value()</a>}] | [{binary(), <a href="#type-data_value">data_value()</a>}] | [{string(), <a href="#type-data_value">data_value()</a>}]
-</code></pre>
-
-
-
-
 ### <a name="type-compile_option">compile_option()</a> ###
 
 
@@ -53,20 +43,24 @@ compile_option() = {key_type, atom | binary | string} | raise_on_context_miss | 
 
 
 <pre><code>
-data() = <a href="#type-assoc_data">assoc_data()</a>
+data() = term()
 </code></pre>
 
+ Beginners should consider [`data/0`](#data-0) as [`recursive_data/0`](#recursive_data-0).
+By specifying options, the type are greatly relaxed and equal to `term/0`.
 
 
 
-### <a name="type-data_value">data_value()</a> ###
+### <a name="type-data_key">data_key()</a> ###
 
 
 <pre><code>
-data_value() = <a href="#type-data">data()</a> | iodata() | number() | atom() | fun((<a href="#type-data">data()</a>, function()) -&gt; iodata())
+data_key() = atom() | binary() | string()
 </code></pre>
 
- Function is intended to support a lambda expression.
+ You can choose one from these as the type of key in [`recursive_data/0`](#recursive_data-0).
+The default is `string/0`.
+If you want to change this, you need to specify `key_type` in [`compile_option/0`](#compile_option-0).
 
 
 
@@ -89,6 +83,16 @@ parse_option() = raise_on_partial_miss
 </code></pre>
 
  - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
+
+
+
+### <a name="type-recursive_data">recursive_data()</a> ###
+
+
+<pre><code>
+recursive_data() = [{<a href="#type-data_key">data_key()</a>, term()}]
+</code></pre>
+
 
 
 
@@ -216,7 +220,7 @@ render(Bin::binary(), Data::<a href="#type-data">data()</a>) -&gt; binary()
 
 Equivalent to [`render(Bin, Data, [])`](#render-3).
 
-__See also:__ [compile/2](#compile-2), [compile_option/0](#compile_option-0), [parse_binary/1](#parse_binary-1), [parse_file/1](#parse_file-1), [parse_option/0](#parse_option-0), [render/2](#render-2).
+__See also:__ [compile/2](#compile-2), [compile_option/0](#compile_option-0), [compile_option/0](#compile_option-0), [parse_binary/1](#parse_binary-1), [parse_file/1](#parse_file-1), [parse_option/0](#parse_option-0), [render/2](#render-2).
 
 <a name="render-3"></a>
 
