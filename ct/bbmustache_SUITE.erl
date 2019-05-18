@@ -21,12 +21,6 @@
 -define(config2, proplists:get_value).
 -define(debug(X), begin io:format("~p", [X]), X end).
 
--ifdef(namespaced_types).
--define(OTP17(X, Y), X).
--else.
--define(OTP17(X, Y), Y).
--endif.
-
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'common_test' Callback API
 %%----------------------------------------------------------------------------------------------------------------------
@@ -52,7 +46,6 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    ct:log(?OTP17("otp17 or later", "before otp17")),
     Config.
 
 end_per_suite(_) ->
@@ -60,15 +53,12 @@ end_per_suite(_) ->
 
 init_per_group(assoc_list, Config) ->
     [{data_conv, fun(X) -> X end} | Config];
-init_per_group(maps, _Config) ->
-    ?OTP17([{data_conv, fun list_to_maps_recursive/1} | _Config],
-           {skip, map_is_unsupported});
-init_per_group(assoc_list_into_maps, _Config) ->
-    ?OTP17([{data_conv, fun maps:from_list/1} | _Config],
-           {skip, map_is_unsupported});
-init_per_group(maps_into_assoc_list, _Config) ->
-    ?OTP17([{data_conv, fun(X) -> deps_list_to_maps(X, 2) end} | _Config],
-           {skip, map_is_unsupported});
+init_per_group(maps, Config) ->
+    [{data_conv, fun list_to_maps_recursive/1} | Config];
+init_per_group(assoc_list_into_maps, Config) ->
+    [{data_conv, fun maps:from_list/1} | Config];
+init_per_group(maps_into_assoc_list, Config) ->
+    [{data_conv, fun(X) -> deps_list_to_maps(X, 2) end} | Config];
 init_per_group(atom_key, Config) ->
     [{data_conv, fun(X) -> key_conv_recursive(X, fun erlang:list_to_atom/1) end},
      {options, [{key_type, atom}]}
@@ -211,7 +201,6 @@ context_stack_ct2(Config) ->
 %% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
--ifdef(namespaced_types).
 %% @doc Recursively converted `map' into `assoc list'.
 list_to_maps_recursive([{_, _} | _] = AssocList) ->
     lists:foldl(fun({Key, [{_, _} | _] = Value}, Map) ->
@@ -235,8 +224,6 @@ deps_list_to_maps(AssocList, Deps) when Deps > 1 ->
                             [{Key, Value} | Acc]
                     end, [], AssocList),
     lists:reverse(R).
-
--endif.
 
 %% @doc Recursively converted keys in assoc list.
 key_conv_recursive([{_, _} | _] = AssocList, ConvFun) ->
