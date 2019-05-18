@@ -122,22 +122,20 @@ assoc_list_render_test_() ->
 
 top_level_context_render_test_() ->
     [
+     {"top-level binary",
+      ?_assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, <<"world">>))},
      {"top-level string",
-      fun() ->
-              ?assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, <<"world">>))
-      end},
+      ?_assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, "world"))},
      {"top-level integer",
-      fun() ->
-              ?assertEqual(<<"1">>, bbmustache:render(<<"{{.}}">>, 1))
-      end},
+      ?_assertEqual(<<"1">>, bbmustache:render(<<"{{.}}">>, 1))},
+     {"top-level float",
+      ?_assertEqual(<<"1.5">>, bbmustache:render(<<"{{.}}">>, 1.5))},
+     {"top-level atom",
+      ?_assertEqual(<<"atom">>, bbmustache:render(<<"{{.}}">>, atom))},
      {"top-level array",
-      fun() ->
-              ?assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{#.}}{{.}}, {{/.}}">>, [1, 2, 3]))
-      end},
+      ?_assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{#.}}{{.}}, {{/.}}">>, [1, 2, 3]))},
      {"top-level map",
-      fun() ->
-              ?assertEqual(<<"yes">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}, [{value_serializer, fun(#{"a" := "1"}) -> <<"yes">> end}]))
-      end}
+      ?_assertEqual(<<"yes">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}, [{value_serializer, fun(#{"a" := "1"}) -> <<"yes">> end}]))}
     ].
 
 atom_and_binary_key_test_() ->
