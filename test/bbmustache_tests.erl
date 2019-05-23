@@ -120,6 +120,24 @@ assoc_list_render_test_() ->
       end}
     ].
 
+top_level_context_render_test_() ->
+    [
+     {"top-level binary",
+      ?_assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, <<"world">>))},
+     {"top-level string",
+      ?_assertEqual(<<"hello world">>, bbmustache:render(<<"hello {{.}}">>, "world"))},
+     {"top-level integer",
+      ?_assertEqual(<<"1">>, bbmustache:render(<<"{{.}}">>, 1))},
+     {"top-level float",
+      ?_assertEqual(<<"1.5">>, bbmustache:render(<<"{{.}}">>, 1.5))},
+     {"top-level atom",
+      ?_assertEqual(<<"atom">>, bbmustache:render(<<"{{.}}">>, atom))},
+     {"top-level array",
+      ?_assertEqual(<<"1, 2, 3, ">>, bbmustache:render(<<"{{#.}}{{.}}, {{/.}}">>, [1, 2, 3]))},
+     {"top-level map",
+      ?_assertEqual(<<"yes">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}, [{value_serializer, fun(#{"a" := "1"}) -> <<"yes">> end}]))}
+    ].
+
 atom_and_binary_key_test_() ->
     [
      {"atom key",
@@ -127,7 +145,7 @@ atom_and_binary_key_test_() ->
               F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
               ?assertEqual(<<"<b>Willy is awesome.</b>">>,
                            bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy_atom}}{{/wrapped}}">>,
-                                           [{name, "Willy"}, {wrapped, F}], [{key_type, atom}])),
+                                             [{name, "Willy"}, {wrapped, F}], [{key_type, atom}])),
               ?assertError(_, binary_to_existing_atom(<<"dummy_atom">>, utf8))
       end},
      {"binary key",
@@ -137,11 +155,6 @@ atom_and_binary_key_test_() ->
                            bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
                                              [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
       end}
-    ].
-
-unsupported_data_test_() ->
-    [
-     {"dict", ?_assertError(function_clause, bbmustache:render(<<>>, dict:new()))}
     ].
 
 raise_on_context_miss_test_() ->
