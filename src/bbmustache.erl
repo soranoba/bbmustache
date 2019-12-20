@@ -399,7 +399,7 @@ parse_loop(State0, Mark, Keys, Input0, Result0) ->
         {endtag, {State2, Keys, LastTagSize, Rest0, LoopResult0}} ->
             {State3, _, Rest1, LoopResult1} = standalone(State2, Rest0, LoopResult0),
             case Mark of
-                '#' -> Source = binary:part(Input1, 0, byte_size(Input1) - byte_size(Rest1) - LastTagSize),
+                '#' -> Source = binary:part(Input1, 0, byte_size(Input1) - byte_size(Rest0) - LastTagSize),
                        parse1(State3, Rest1, [{'#', Keys, lists:reverse(LoopResult1), Source} | Result1]);
                 '^' -> parse1(State3, Rest1, [{'^', Keys, lists:reverse(LoopResult1)} | Result1])
             end;
