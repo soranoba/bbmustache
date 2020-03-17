@@ -33,7 +33,7 @@ compile_option() = {key_type, atom | binary | string} | raise_on_context_miss | 
 </code></pre>
 
  |key                  |description                                                                           |
-|:-------------------:|:------------------------------------------------------------------------------------:|
+|:--                  |:----------                                                                           |
 |key_type             | Specify the type of the key in [`data/0`](#data-0). Default value is `string`.            |
 |raise_on_context_miss| If key exists in template does not exist in data, it will throw an exception (error).|
 |escape_fun           | Specify your own escape function.                                                    |
@@ -100,9 +100,8 @@ parse_option() = {partial_file_reader, fun((Dirname::binary(), <a href="#type-ke
 </code></pre>
 
  |key                  |description                                                                           |
-|:-------------------:|:------------------------------------------------------------------------------------:|
-|partial_file_reader  | When you specify this, it delegate reading of file to the function by `partial`.<br />
-This can be used when you want to read from files other than local files.            |
+|:--                  |:----------                                                                           |
+|partial_file_reader  | When you specify this, it delegate reading of file to the function by `partial`.<br /> This can be used when you want to read from files other than local files.|
 |raise_on_partial_miss| If the template used in partials does not found, it will throw an exception (error). |
 
 
