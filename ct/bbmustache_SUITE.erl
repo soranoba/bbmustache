@@ -16,7 +16,7 @@
 -define(ALL_TEST, [variables_ct, sections_ct1, sections_ct2, sections_ct3, sections_ct4,
                    lambdas_ct, comments_ct, partials_ct, delimiter_ct, dot_ct, dot_unescape_ct,
                    indent_partials_ct, not_found_partials_ct1, not_found_partials_ct2, not_found_partials_ct3,
-                   context_stack_ct, context_stack_ct2]).
+                   context_stack_ct, context_stack_ct2, partial_custom_reader_ct]).
 
 -define(config2, proplists:get_value).
 -define(debug(X), begin io:format("~p", [X]), X end).
@@ -196,6 +196,13 @@ context_stack_ct2(Config) ->
             {"a", [{"b", ["A", "B", "C"]}]}
            ],
     ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+
+partial_custom_reader_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"not_found_partial.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"not_found_partial.result">>])),
+
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))([])),
+                                          ?config2(options, Config, []) ++ [{partial_file_reader, fun(_, Key) -> Key end}])).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions

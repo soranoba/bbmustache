@@ -21,10 +21,12 @@
          parse_file/2,
          compile/2,
          compile/3,
-         default_value_serializer/1
+         default_value_serializer/1,
+         default_partial_file_reader/2
         ]).
 
 -export_type([
+              key/0,
               template/0,
               data/0,
               recursive_data/0,
@@ -54,7 +56,10 @@
 -define(RAISE_ON_PARTIAL_MISS_ENABLED(Options),
         proplists:get_bool(raise_on_partial_miss, Options)).
 
--define(PARSE_OPTIONS, [raise_on_partial_miss]).
+-define(PARSE_OPTIONS, [
+                        partial_file_reader,
+                        raise_on_partial_miss
+                       ]).
 
 -type key()    :: binary().
 %% Key MUST be a non-whitespace character sequence NOT containing the current closing delimiter. <br />
@@ -113,17 +118,23 @@
         }).
 -type state() :: #state{}.
 
--type parse_option() :: raise_on_partial_miss.
-%% - raise_on_partial_miss: If the template used in partials does not found, it will throw an exception (error).
+-type parse_option() :: {partial_file_reader, fun((Dirname :: binary(), key()) -> Data :: binary())}
+                     | raise_on_partial_miss.
+%% |key                  |description                                                                           |
+%% |:--                  |:----------                                                                           |
+%% |partial_file_reader  | When you specify this, it delegate reading of file to the function by `partial'.<br/> This can be used when you want to read from files other than local files.|
+%% |raise_on_partial_miss| If the template used in partials does not found, it will throw an exception (error). |
 
 -type compile_option() :: {key_type, atom | binary | string}
                        | raise_on_context_miss
                        | {escape_fun, fun((binary()) -> binary())}
                        | {value_serializer, fun((any()) -> iodata())}.
-%% - key_type: Specify the type of the key in {@link data/0}. Default value is `string'.
-%% - raise_on_context_miss: If key exists in template does not exist in data, it will throw an exception (error).
-%% - escape_fun: Specify your own escape function.
-%% - value_serializer: specify how terms are converted to iodata when templating.
+%% |key                  |description                                                                           |
+%% |:--                  |:----------                                                                           |
+%% |key_type             | Specify the type of the key in {@link data/0}. Default value is `string'.            |
+%% |raise_on_context_miss| If key exists in template does not exist in data, it will throw an exception (error).|
+%% |escape_fun           | Specify your own escape function.                                                    |
+%% |value_serializer     | specify how terms are converted to iodata when templating.                           |
 
 -type render_option() :: compile_option() | parse_option().
 %% @see compile_option/0
@@ -166,7 +177,10 @@ render(Bin, Data) ->
 %% @equiv compile(parse_binary(Bin), Data, Options)
 -spec render(binary(), data(), [render_option()]) -> binary().
 render(Bin, Data, Options) ->
-    {ParseOptions, CompileOptions} = lists:partition(fun(X) -> lists:member(X, ?PARSE_OPTIONS) end, Options),
+    {ParseOptions, CompileOptions}
+        = lists:partition(fun(X) ->
+                              lists:member(?IIF(is_tuple(X), element(1, X), X), ?PARSE_OPTIONS)
+                          end, Options),
     compile(parse_binary(Bin, ParseOptions), Data, CompileOptions).
 
 %% @equiv parse_binary(Bin, [])
@@ -234,6 +248,13 @@ default_value_serializer(X) when is_map(X); is_tuple(X) ->
     error(unsupported_term, [X]);
 default_value_serializer(X) ->
     X.
+
+%% @doc Default partial file reader
+-spec default_partial_file_reader(binary(), binary()) -> {ok, binary()} | {error, Reason :: term()}.
+default_partial_file_reader(Dirname, Key) ->
+    Filename0 = <<Key/binary, ".mustache">>,
+    Filename  = ?IIF(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
+    file:read_file(Filename).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Function
@@ -305,10 +326,9 @@ parse_remaining_partials(State = #state{partials = [P | PartialKeys]}, Template 
     case proplists:is_defined(P, Partials) of
         true  -> parse_remaining_partials(State#state{partials = PartialKeys}, Template, Options);
         false ->
-            Filename0 = <<P/binary, ".mustache">>,
-            Dirname   = State#state.dirname,
-            Filename  = ?IIF(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
-            case file:read_file(Filename) of
+            FileReader = proplists:get_value(partial_file_reader, Options, fun default_partial_file_reader/2),
+            Dirname    = State#state.dirname,
+            case FileReader(Dirname, P) of
                 {ok, Input} ->
                     {State1, Data} = parse(State, Input),
                     parse_remaining_partials(State1, Template#?MODULE{partials = [{P, Data} | Partials]}, Options);
