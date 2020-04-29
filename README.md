@@ -144,10 +144,21 @@ ok
 3> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
 <<"<h1>{\"nested\": \"value\"}</h1>">>
 
-4> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).  
+4> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
 <<"<h1>{&quot;nested&quot;:&quot;value&quot;}</h1>">>
 ```
 
+
+### Want to call bbmustache from the command-line
+```bash
+make escriptize
+
+cat vars.config file.template
+{name, "hoge"}
+{{name}}
+./_build/dev/bin/bbmustache -d vars.config render file.template
+hoge
+```
 
 ## Attention
 - Lambda expression is included wasted processing.
