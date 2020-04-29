@@ -22,7 +22,8 @@
          compile/2,
          compile/3,
          default_value_serializer/1,
-         default_partial_file_reader/2
+         default_partial_file_reader/2,
+         main/1
         ]).
 
 -export_type([
@@ -255,6 +256,23 @@ default_partial_file_reader(Dirname, Key) ->
     Filename0 = <<Key/binary, ".mustache">>,
     Filename  = ?IIF(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
     file:read_file(Filename).
+
+%% @doc escript entry point
+-spec main(string()) -> ok.
+main(Args) ->
+    %% Load the application to be able to access its information
+    %% (e.g. --version option)
+    case application:load(bbmustache) of
+        ok -> ok;
+        {error, {already_loaded, bbmustache}} -> ok
+    end,
+    case getopt:parse(option_spec_list(), Args) of
+        {ok, {Options, Commands}} ->
+            process_commands(Options, Commands);
+        {error, {Reason, Data}} ->
+            io:format("~s ~p~n", [Reason, Data]),
+            halt(1)
+    end.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Function
@@ -689,3 +707,46 @@ is_recursive_data(_)                                -> false.
 is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
 is_recursive_data(_)                                -> false.
 -endif.
+
+%% @doc Processes command-line commands (render, ...)
+-spec process_commands([getopt:option()], [string()]) -> ok.
+process_commands([], []) ->
+    help();
+process_commands([help | _], _) ->
+    help();
+process_commands([version | _], _Options) ->
+    {ok, AppConfig} = application:get_all_key(bbmustache),
+    Version = proplists:get_value(vsn, AppConfig),
+    io:format("~p~n", [Version]);
+process_commands([commands | _], _Options) ->
+    Commands = "render [file,...]",
+    io:format("~s~n", [Commands]);
+process_commands(Options, ["render" | TemplateFileNames]) ->
+    KeyType = proplists:get_value(key_type, Options, atom),
+    RenderOptions = [{key_type, KeyType}],
+    DataFileName = proplists:get_value(data_file, Options),
+    Data = merge_data_files(DataFileName),
+    lists:foreach(fun(TemplateFileName) ->
+                        {ok, Template} = file:read_file(TemplateFileName),
+                        Ret = render(Template, Data, RenderOptions),
+                        io:format("~s~n", [Ret])
+                  end, TemplateFileNames);
+process_commands(_, _) ->
+    throw(unrecognized_or_unimplemented_command).
+
+%% @doc Returns command-line options.
+-spec option_spec_list() -> [getopt:option_spec()].
+option_spec_list() ->
+[
+    %% {Name,   ShortOpt,   LongOpt,        ArgSpec,        HelpMsg}
+    {help,      $h,         "help",         undefined,      "Show this help information."},
+    {version,   $v,         "version",      undefined,      "Output the current bbmustache version"},
+    {commands,  undefined,  "commands",     undefined,      "Show available commands."},
+    {key_type,  $k,         "key-type",     atom,           "Key type (atom | binary | string)."},
+    {data_file, $d,         "data-file",    string,         "Erlang terms file."}
+].
+
+%% @doc Returns command-line help.
+-spec help() -> ok.
+help() ->
+    getopt:usage(option_spec_list(), escript:script_name()).
