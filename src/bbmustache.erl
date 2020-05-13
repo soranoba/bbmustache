@@ -266,11 +266,12 @@ main(Args) ->
         ok -> ok;
         {error, {already_loaded, bbmustache}} -> ok
     end,
-    case getopt:parse(option_spec_list(), Args) of
-        {ok, {Options, Commands}} ->
-            process_commands(Options, Commands);
-        {error, {Reason, Data}} ->
-            io:format("~s ~p~n", [Reason, Data]),
+    try
+        {ok, {Options, Commands}} = getopt:parse(option_spec_list(), Args),
+        process_commands(Options, Commands)
+    catch
+        throw:Reason ->
+            _ = io:format(standard_error, Reason),
             halt(1)
     end.
 
@@ -710,46 +711,48 @@ is_recursive_data(_)                                -> false.
 
 %% @doc Processes command-line commands (render, ...)
 -spec process_commands([getopt:option()], [string()]) -> ok.
-process_commands([], []) ->
-    help();
-process_commands([help | _], _) ->
-    help();
-process_commands([version | _], _Options) ->
-    {ok, AppConfig} = application:get_all_key(bbmustache),
-    Version = proplists:get_value(vsn, AppConfig),
-    io:format("~p~n", [Version]);
-process_commands([commands | _], _Options) ->
-    Commands = "render [file,...]",
-    io:format("~s~n", [Commands]);
-process_commands(Options, ["render" | TemplateFileNames]) ->
-    KeyType = proplists:get_value(key_type, Options, atom),
-    RenderOptions = [{key_type, KeyType}],
-    DataFileName = proplists:get_value(data_file, Options),
-    Data = read_data_files(DataFileName),
-    lists:foreach(fun(TemplateFileName) ->
-                        {ok, Template} = file:read_file(TemplateFileName),
-                        Ret = render(Template, Data, RenderOptions),
-                        io:format("~s~n", [Ret])
-                  end, TemplateFileNames);
-process_commands(_, _) ->
-    throw(unrecognized_or_unimplemented_command).
+process_commands(Opts, Cmds) ->
+    HasHelp = proplists:is_defined(help, Opts),
+    HasVersion = proplists:is_defined(version, Opts),
+    if
+        HasHelp                     -> print_help(standard_io);
+        HasVersion                  -> print_version();
+        Opts =:= [], Cmds =:= []    -> print_help(standard_error);
+        true                        -> process_render(Opts, Cmds)
+    end.
 
 %% @doc Returns command-line options.
 -spec option_spec_list() -> [getopt:option_spec()].
 option_spec_list() ->
 [
-    %% {Name,   ShortOpt,   LongOpt,        ArgSpec,        HelpMsg}
-    {help,      $h,         "help",         undefined,      "Show this help information."},
-    {version,   $v,         "version",      undefined,      "Output the current bbmustache version"},
-    {commands,  undefined,  "commands",     undefined,      "Show available commands."},
-    {key_type,  $k,         "key-type",     atom,           "Key type (atom | binary | string)."},
-    {data_file, $d,         "data-file",    string,         "Erlang terms file."}
+    %% {Name,           ShortOpt,   LongOpt,        ArgSpec,        HelpMsg}
+    {help,              $h,         "help",         undefined,      "Show this help information."},
+    {version,           $v,         "version",      undefined,      "Output the current bbmustache version."},
+    {key_type,          $k,         "key-type",     atom,           "Key type (atom | binary | string)."},
+    {data_file,         $d,         "data-file",    string,         "Erlang terms file."}
 ].
+-spec process_render([getopt:option()], [string()]) -> ok.
+process_render(Opts, TemplateFileNames) ->
+    DataFileName = proplists:get_value(data_file, Opts),
+    Data = read_data_files(DataFileName),
+    KeyType = proplists:get_value(key_type, Opts, string),
+    RenderOpts = [{key_type, KeyType}],
+    lists:foreach(fun(TemplateFileName) ->
+                        Ret = compile(parse_file(TemplateFileName), Data, RenderOpts),
+                        _ = io:format(Ret)
+                  end, TemplateFileNames).
 
-%% @doc Returns command-line help.
--spec help() -> ok.
-help() ->
-    getopt:usage(option_spec_list(), escript:script_name()).
+%% @doc Prints usage/help.
+-spec print_help(getopt:output_stream()) -> ok.
+print_help(OutputStream) ->
+    getopt:usage(option_spec_list(), escript:script_name(), "template_files ...", OutputStream).
+
+%% @doc Prints version.
+-spec print_version() -> ok.
+print_version() ->
+    {ok, AppConfig} = application:get_all_key(bbmustache),
+    Version = proplists:get_value(vsn, AppConfig),
+    _ = io:format(Version).
 
 %% @doc Read the data-file and return terms.
 -spec read_data_files(file:filename_all()) -> [term()].
