@@ -5,7 +5,7 @@ compile:
 	@./rebar3 as dev compile
 
 xref:
-	@./rebar3 xref
+	@./rebar3 as dev xref
 
 clean:
 	@./rebar3 clean
@@ -35,3 +35,6 @@ bench:
 
 escriptize:
 	@./rebar3 as dev escriptize
+
+install: escriptize
+	cp _build/dev/bin/bbmustache /usr/local/bin
