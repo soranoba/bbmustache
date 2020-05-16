@@ -705,10 +705,7 @@ is_recursive_data(_)                                -> false.
 main(Args) ->
     %% Load the application to be able to access its information
     %% (e.g. --version option)
-    case application:load(bbmustache) of
-        ok -> ok;
-        {error, {already_loaded, bbmustache}} -> ok
-    end,
+    _ = application:load(bbmustache),
     try
         {ok, {Options, Commands}} = getopt:parse(option_spec_list(), Args),
         process_commands(Options, Commands)
@@ -760,9 +757,16 @@ print_help(OutputStream) ->
 %% @doc Prints version.
 -spec print_version() -> ok.
 print_version() ->
-    {ok, AppConfig} = application:get_all_key(bbmustache),
-    Version = proplists:get_value(vsn, AppConfig),
-    _ = io:format(Version).
+    Vsn = case application:get_key(bbmustache, vsn) of
+        undefined  -> throw("vsn can not read from bbmustache.app");
+        {ok, Vsn0} -> Vsn0
+    end,
+    AdditionalVsn = case application:get_env(bbmustache, git_vsn) of
+                        {ok, {_Tag, Count, [$g | GitHash]}} -> "+build." ++ Count ++ ".ref" ++ GitHash;
+                        _                                   -> ""
+                    end,
+    %% e.g. bbmustache v1.9.0+build.5.ref90a0afd4f2
+    io:format("bbmustache v~s~s~n", [Vsn, AdditionalVsn]).
 
 %% @doc Read the data-file and return terms.
 -spec read_data_files(file:filename_all()) -> [term()].
