@@ -701,17 +701,20 @@ is_recursive_data(_)                                -> false.
 -ifdef(bbmustache_escriptize).
 
 %% @doc escript entry point
--spec main(string()) -> ok.
+%% @private
+-spec main([string()]) -> ok.
 main(Args) ->
     %% Load the application to be able to access its information
     %% (e.g. --version option)
     _ = application:load(bbmustache),
-    try
-        {ok, {Options, Commands}} = getopt:parse(option_spec_list(), Args),
-        process_commands(Options, Commands)
+    try getopt:parse(option_spec_list(), Args) of
+        {ok, {Options, Commands}} -> process_commands(Options, Commands);
+        {error, Reason}           ->
+            ok = io:format(standard_error, "~s~n", [getopt:format_error(option_spec_list(), Reason)]),
+            halt(1)
     catch
         throw:Reason ->
-            _ = io:format(standard_error, Reason),
+            ok = io:format(standard_error, "~p~n", [Reason]),
             halt(1)
     end.
 
@@ -741,6 +744,8 @@ option_spec_list() ->
 -spec process_render([getopt:option()], [string()]) -> ok.
 process_render(Opts, TemplateFileNames) ->
     DataFileName = proplists:get_value(data_file, Opts),
+    _ = DataFileName =:= undefined andalso throw("-d or --data-file option are not specified"),
+
     Data = read_data_files(DataFileName),
     KeyType = proplists:get_value(key_type, Opts, string),
     RenderOpts = [{key_type, KeyType}],
