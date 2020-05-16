@@ -700,8 +700,7 @@ is_recursive_data(_)                                -> false.
 
 -ifdef(bbmustache_escriptize).
 
-%% @doc escript entry point
-%% @private
+%% escript entry point
 -spec main([string()]) -> ok.
 main(Args) ->
     %% Load the application to be able to access its information
@@ -716,7 +715,7 @@ main(Args) ->
             halt(1)
     end.
 
-%% @doc Processes command-line commands (render, ...)
+%% Processes command-line commands
 -spec process_commands([getopt:option()], [string()]) -> ok.
 process_commands(Opts, Cmds) ->
     HasHelp = proplists:is_defined(help, Opts),
@@ -728,7 +727,7 @@ process_commands(Opts, Cmds) ->
         true                        -> process_render(Opts, Cmds)
     end.
 
-%% @doc Returns command-line options.
+%% Returns command-line options.
 -spec option_spec_list() -> [getopt:option_spec()].
 option_spec_list() ->
 [
@@ -739,6 +738,7 @@ option_spec_list() ->
     {data_file,         $d,         "data-file",    string,         "Erlang terms file."}
 ].
 
+%% Processes render
 -spec process_render([getopt:option()], [string()]) -> ok.
 process_render(Opts, TemplateFileNames) ->
     DataFileNames = proplists:get_all_values(data_file, Opts),
@@ -754,12 +754,12 @@ process_render(Opts, TemplateFileNames) ->
                       end
                   end, TemplateFileNames).
 
-%% @doc Prints usage/help.
+%% Prints usage/help.
 -spec print_help(getopt:output_stream()) -> ok.
 print_help(OutputStream) ->
     getopt:usage(option_spec_list(), escript:script_name(), "template_files ...", OutputStream).
 
-%% @doc Prints version.
+%% Prints version.
 -spec print_version() -> ok.
 print_version() ->
     Vsn = case application:get_key(bbmustache, vsn) of
@@ -773,7 +773,7 @@ print_version() ->
     %% e.g. bbmustache v1.9.0+build.5.ref90a0afd4f2
     io:format("bbmustache v~s~s~n", [Vsn, AdditionalVsn]).
 
-%% @doc Read the data-file and return terms.
+%% Read the data-file and return terms.
 -spec read_data_files(file:filename_all()) -> [term()].
 read_data_files(Filename) ->
     case file:consult(Filename) of

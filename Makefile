@@ -22,7 +22,7 @@ eunit:
 	@./rebar3 eunit
 
 edoc:
-	@./rebar3 as dev edoc
+	@./rebar3 as doc edoc
 
 start:
 	@./rebar3 as dev shell
