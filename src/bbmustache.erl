@@ -725,7 +725,7 @@ process_commands(Options, ["render" | TemplateFileNames]) ->
     KeyType = proplists:get_value(key_type, Options, atom),
     RenderOptions = [{key_type, KeyType}],
     DataFileName = proplists:get_value(data_file, Options),
-    Data = merge_data_files(DataFileName),
+    Data = read_data_files(DataFileName),
     lists:foreach(fun(TemplateFileName) ->
                         {ok, Template} = file:read_file(TemplateFileName),
                         Ret = render(Template, Data, RenderOptions),
@@ -750,3 +750,24 @@ option_spec_list() ->
 -spec help() -> ok.
 help() ->
     getopt:usage(option_spec_list(), escript:script_name()).
+
+%% @doc Read the data-file and return terms.
+-spec read_data_files(file:filename_all()) -> [term()].
+read_data_files(Filename) ->
+    case file:consult(Filename) of
+        {ok, Map} when is_map(Map) ->
+            maps:to_list(Map);
+        {ok, Terms} when is_list(Terms) ->
+            lists:foldl(fun(Term, Acc) when is_tuple(Term) ->
+                              [Term | Acc];
+                           (InclusionFilename, Acc) when is_list(InclusionFilename) ->
+                              Path = filename:join(filename:dirname(Filename), InclusionFilename),
+                              read_data_files(Path) ++ Acc;
+                           (Term, _Acc) ->
+                              throw(io_lib:format("~s have unsupported format terms. (~p)", [Filename, Term]))
+                        end, [], Terms);
+        {ok, _Terms} ->
+            throw(io_lib:format("~s have unsupported format terms.", [Filename]));
+        {error, Reason} ->
+            throw(io_lib:format("~s is unable to read. (~p)", [Filename, Reason]))
+    end.
