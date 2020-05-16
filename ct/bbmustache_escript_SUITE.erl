@@ -14,7 +14,7 @@ all() ->
       {group, short},
       {group, with_args},
 
-      help, all_key_and_format_type, multiple_data_files
+      help, all_key_and_format_type, multiple_data_files, enoent
     ].
 
 groups() ->
@@ -96,6 +96,13 @@ multiple_data_files(Config) ->
                           ++ ["-d", data_file_name(KeyType, overlays, Config)] ++ [TempalteFile]),
         ?assertEqual(Expect, Got)
     end, [{K, F} || K <- KeyTypes, F <- FormatTypes]).
+
+enoent(Config) ->
+    Got0 = run(Config, ["-d", "no_file", ?config(data_dir, Config) ++ "template.mustache"]),
+    ?assertEqual(<<"ERROR: no_file is unable to read. (enoent)\n">>, Got0),
+
+    Got1 = run(Config, ["no_file"]),
+    ?assertEqual(<<"ERROR: no_file is unable to read.\n">>, Got1).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions

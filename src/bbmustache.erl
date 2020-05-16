@@ -707,14 +707,12 @@ main(Args) ->
     %% Load the application to be able to access its information
     %% (e.g. --version option)
     _ = application:load(bbmustache),
-    try getopt:parse(option_spec_list(), Args) of
+    try case getopt:parse(option_spec_list(), Args) of
         {ok, {Options, Commands}} -> process_commands(Options, Commands);
-        {error, Reason}           ->
-            ok = io:format(standard_error, "~s~n", [getopt:format_error(option_spec_list(), Reason)]),
-            halt(1)
-    catch
-        throw:Reason ->
-            ok = io:format(standard_error, "~p~n", [Reason]),
+        {error, Reason}           -> throw(getopt:format_error(option_spec_list(), Reason))
+    end catch
+        throw:ThrowReason ->
+            ok = io:format(standard_error, "ERROR: ~s~n", [ThrowReason]),
             halt(1)
     end.
 
@@ -748,8 +746,12 @@ process_render(Opts, TemplateFileNames) ->
     KeyType = proplists:get_value(key_type, Opts, string),
     RenderOpts = [{key_type, KeyType}],
     lists:foreach(fun(TemplateFileName) ->
-                        Ret = compile(parse_file(TemplateFileName), Data, RenderOpts),
-                        _ = io:format(Ret)
+                      try parse_file(TemplateFileName) of
+                          Template -> io:format(compile(Template, Data, RenderOpts))
+                      catch
+                          error:?FILE_ERROR ->
+                              throw(io_lib:format("~s is unable to read.", [TemplateFileName]))
+                      end
                   end, TemplateFileNames).
 
 %% @doc Prints usage/help.
