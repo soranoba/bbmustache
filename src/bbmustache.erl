@@ -792,8 +792,6 @@ read_data_files(Filename) ->
                            (Term, _Acc) ->
                               throw(io_lib:format("~s have unsupported format terms. (~p)", [Filename, Term]))
                         end, [], Terms);
-        {ok, _Terms} ->
-            throw(io_lib:format("~s have unsupported format terms.", [Filename]));
         {error, Reason} ->
             throw(io_lib:format("~s is unable to read. (~p)", [Filename, Reason]))
     end.
