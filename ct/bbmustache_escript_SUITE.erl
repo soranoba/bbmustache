@@ -63,7 +63,7 @@ end_per_testcase(_, _) ->
 
 version(Config) ->
     Got = run(Config),
-    ?assertMatch({match, _}, re:run(Got, "bbmustache v[0-9]\.[0-9]\.[0-9].*")).
+    ?assertMatch({match, _}, re:run(Got, "bbmustache v[0-9]+\.[0-9]+\.[0-9]+.*")).
 
 help(Config) ->
     Got = run(Config),
