@@ -81,6 +81,19 @@ Associative array
 <<"hoge">>
 ```
 
+### Use as a command-line tool
+
+```bash
+make escriptize
+echo '{"name", "hoge"}.' > vars.config
+echo '{{name}}' > template.mustache
+./bbmustache -d vars.config template.mustache
+hoge
+```
+
+Data files (-d) support a single assoc list, a single map, and [consult](https://erlang.org/doc/man/file.html#consult-1) format.<br>
+Note: the behind term has a high priority in all cases. it is a result of supporting to allow for embedding relative file paths as in [config](http://erlang.org/doc/man/config.html).
+
 ### More information
 - For the alias of mustache, Please refer to [ManPage](http://mustache.github.io/mustache.5.html) and [Specification](https://github.com/mustache/spec)
 - For the options of this library, please see [doc](doc)
@@ -144,10 +157,9 @@ ok
 3> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
 <<"<h1>{\"nested\": \"value\"}</h1>">>
 
-4> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).  
+4> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
 <<"<h1>{&quot;nested&quot;:&quot;value&quot;}</h1>">>
 ```
-
 
 ## Attention
 - Lambda expression is included wasted processing.

@@ -25,6 +25,10 @@
          default_partial_file_reader/2
         ]).
 
+-ifdef(bbmustache_escriptize).
+-export([main/1]).
+-endif.
+
 -export_type([
               key/0,
               template/0,
@@ -688,4 +692,108 @@ is_recursive_data(_)                                -> false.
 -else.
 is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
 is_recursive_data(_)                                -> false.
+-endif.
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Escriptize
+%%----------------------------------------------------------------------------------------------------------------------
+
+-ifdef(bbmustache_escriptize).
+
+%% escript entry point
+-spec main([string()]) -> ok.
+main(Args) ->
+    %% Load the application to be able to access its information
+    %% (e.g. --version option)
+    _ = application:load(bbmustache),
+    try case getopt:parse(option_spec_list(), Args) of
+        {ok, {Options, Commands}} -> process_commands(Options, Commands);
+        {error, Reason}           -> throw(getopt:format_error(option_spec_list(), Reason))
+    end catch
+        throw:ThrowReason ->
+            ok = io:format(standard_error, "ERROR: ~s~n", [ThrowReason]),
+            halt(1)
+    end.
+
+%% Processes command-line commands
+-spec process_commands([getopt:option()], [string()]) -> ok.
+process_commands(Opts, Cmds) ->
+    HasHelp = proplists:is_defined(help, Opts),
+    HasVersion = proplists:is_defined(version, Opts),
+    if
+        HasHelp                     -> print_help(standard_io);
+        HasVersion                  -> print_version();
+        Opts =:= [], Cmds =:= []    -> print_help(standard_error);
+        true                        -> process_render(Opts, Cmds)
+    end.
+
+%% Returns command-line options.
+-spec option_spec_list() -> [getopt:option_spec()].
+option_spec_list() ->
+[
+    %% {Name,           ShortOpt,   LongOpt,        ArgSpec,        HelpMsg}
+    {help,              $h,         "help",         undefined,      "Show this help information."},
+    {version,           $v,         "version",      undefined,      "Output the current bbmustache version."},
+    {key_type,          $k,         "key-type",     atom,           "Key type (atom | binary | string)."},
+    {data_file,         $d,         "data-file",    string,         "Erlang terms file."}
+].
+
+%% Processes render
+-spec process_render([getopt:option()], [string()]) -> ok.
+process_render(Opts, TemplateFileNames) ->
+    DataFileNames = proplists:get_all_values(data_file, Opts),
+    Data = lists:foldl(fun(Filename, Acc) -> read_data_files(Filename) ++ Acc end, [], DataFileNames),
+    KeyType = proplists:get_value(key_type, Opts, string),
+    RenderOpts = [{key_type, KeyType}],
+    lists:foreach(fun(TemplateFileName) ->
+                      try parse_file(TemplateFileName) of
+                          Template -> io:format(compile(Template, Data, RenderOpts))
+                      catch
+                          error:?FILE_ERROR ->
+                              throw(io_lib:format("~s is unable to read.", [TemplateFileName]))
+                      end
+                  end, TemplateFileNames).
+
+%% Prints usage/help.
+-spec print_help(getopt:output_stream()) -> ok.
+print_help(OutputStream) ->
+    getopt:usage(option_spec_list(), escript:script_name(), "template_files ...", OutputStream).
+
+%% Prints version.
+-spec print_version() -> ok.
+print_version() ->
+    Vsn = case application:get_key(bbmustache, vsn) of
+        undefined  -> throw("vsn can not read from bbmustache.app");
+        {ok, Vsn0} -> Vsn0
+    end,
+    AdditionalVsn = case application:get_env(bbmustache, git_vsn) of
+                        {ok, {_Tag, Count, [$g | GitHash]}} -> "+build." ++ Count ++ ".ref" ++ GitHash;
+                        _                                   -> ""
+                    end,
+    %% e.g. bbmustache v1.9.0+build.5.ref90a0afd4f2
+    io:format("bbmustache v~s~s~n", [Vsn, AdditionalVsn]).
+
+%% Read the data-file and return terms.
+-spec read_data_files(file:filename_all()) -> [term()].
+read_data_files(Filename) ->
+    case file:consult(Filename) of
+        {ok, [Map]} when is_map(Map) ->
+            maps:to_list(Map);
+        {ok, Terms0} when is_list(Terms0) ->
+            Terms = case Terms0 of
+                        [Term] when is_list(Term) -> Term;
+                        _                         -> Terms0
+                    end,
+            lists:foldl(fun(Term, Acc) when is_tuple(Term) ->
+                              [Term | Acc];
+                           (InclusionFilename, Acc) when is_list(InclusionFilename) ->
+                              Path = filename:join(filename:dirname(Filename), InclusionFilename),
+                              read_data_files(Path) ++ Acc;
+                           (Term, _Acc) ->
+                              throw(io_lib:format("~s have unsupported format terms. (~p)", [Filename, Term]))
+                        end, [], Terms);
+        {error, Reason} ->
+            throw(io_lib:format("~s is unable to read. (~p)", [Filename, Reason]))
+    end.
+
 -endif.
