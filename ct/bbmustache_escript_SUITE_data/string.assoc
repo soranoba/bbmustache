@@ -1,6 +1,6 @@
 [
   {"name", "mustache"},
-  "string.overlays",
+  "string.include",
   {"data", [
             "a",
             "b"

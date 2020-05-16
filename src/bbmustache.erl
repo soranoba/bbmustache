@@ -743,10 +743,8 @@ option_spec_list() ->
 
 -spec process_render([getopt:option()], [string()]) -> ok.
 process_render(Opts, TemplateFileNames) ->
-    DataFileName = proplists:get_value(data_file, Opts),
-    _ = DataFileName =:= undefined andalso throw("-d or --data-file option are not specified"),
-
-    Data = read_data_files(DataFileName),
+    DataFileNames = proplists:get_all_values(data_file, Opts),
+    Data = lists:foldl(fun(Filename, Acc) -> read_data_files(Filename) ++ Acc end, [], DataFileNames),
     KeyType = proplists:get_value(key_type, Opts, string),
     RenderOpts = [{key_type, KeyType}],
     lists:foreach(fun(TemplateFileName) ->

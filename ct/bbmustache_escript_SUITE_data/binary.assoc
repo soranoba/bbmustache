@@ -1,6 +1,6 @@
 [
   {<<"name">>, "mustache"},
-  "binary.overlays",
+  "binary.include",
   {<<"data">>, [
                 "a",
                 "b"

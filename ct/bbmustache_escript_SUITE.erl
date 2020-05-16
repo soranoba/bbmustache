@@ -14,7 +14,7 @@ all() ->
       {group, short},
       {group, with_args},
 
-      help, all_key_and_format_type
+      help, all_key_and_format_type, multiple_data_files
     ].
 
 groups() ->
@@ -78,10 +78,22 @@ all_key_and_format_type(Config) ->
     KeyTypes = [atom, string, binary, undefined],
     FormatTypes = [basic, assoc, maps],
     Expect = read_file("template.result", Config),
+    TempalteFile = ?config(data_dir, Config) ++ "template.mustache",
     ok = lists:foreach(fun({KeyType, FormatType}) ->
         ct:log("KeyType = ~p, FormatType = ~p", [KeyType, FormatType]),
-        TempalteFile = ?config(data_dir, Config) ++ "template.mustache",
         Got = run(Config, options(KeyType, FormatType, Config) ++ [TempalteFile]),
+        ?assertEqual(Expect, Got)
+    end, [{K, F} || K <- KeyTypes, F <- FormatTypes]).
+
+multiple_data_files(Config) ->
+    KeyTypes = [atom, string, binary, undefined],
+    FormatTypes = [basic, assoc, maps],
+    Expect = read_file("template.overlay.result", Config),
+    TempalteFile = ?config(data_dir, Config) ++ "template.mustache",
+    ok = lists:foreach(fun({KeyType, FormatType}) ->
+        ct:log("KeyType = ~p, FormatType = ~p", [KeyType, FormatType]),
+        Got = run(Config, options(KeyType, FormatType, Config)
+                          ++ ["-d", data_file_name(KeyType, overlays, Config)] ++ [TempalteFile]),
         ?assertEqual(Expect, Got)
     end, [{K, F} || K <- KeyTypes, F <- FormatTypes]).
 
@@ -89,12 +101,15 @@ all_key_and_format_type(Config) ->
 %% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
+-spec group_name([term()]) -> atom().
 group_name(Config) ->
     proplists:get_value(name, ?config(tc_group_properties, Config)).
 
+-spec run([term()]) -> binary().
 run(Config) ->
     run(Config, []).
 
+-spec run([term()], [string()]) -> binary().
 run(Config, Args) ->
     Cmd = ?config(escript, Config) ++ " " ++ string:join(?config(args, Config) ++ Args, " "),
     ct:log("$ ~s", [Cmd]),
@@ -102,13 +117,18 @@ run(Config, Args) ->
     ct:log("~s", [Ret]),
     list_to_binary(Ret).
 
+-spec read_file(file:filename_all(), [term()]) -> binary().
 read_file(FileName, Config) ->
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), FileName])),
     File.
 
+-spec data_file_name(atom(), atom(), [term()]) -> string().
+data_file_name(undefined, FormatType, Config) ->
+    data_file_name(string, FormatType, Config);
 data_file_name(KeyType, FormatType, Config) ->
     ?config(data_dir, Config) ++ atom_to_list(KeyType) ++ "." ++ atom_to_list(FormatType).
 
+-spec options(atom(), atom(), [term()]) -> [string()].
 options(undefined, FormatType, Config) ->
     ["-d", data_file_name(string, FormatType, Config)];
 options(KeyType, FormatType, Config) ->

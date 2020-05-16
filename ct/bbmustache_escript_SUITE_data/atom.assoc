@@ -1,6 +1,6 @@
 [
   {name, "mustache"},
-  "atom.overlays",
+  "atom.include",
   {data, [
           "a",
           "b"
