@@ -22,9 +22,12 @@
          compile/2,
          compile/3,
          default_value_serializer/1,
-         default_partial_file_reader/2,
-         main/1
+         default_partial_file_reader/2
         ]).
+
+-ifdef(bbmustache_escriptize).
+-export([main/1]).
+-endif.
 
 -export_type([
               key/0,
@@ -256,24 +259,6 @@ default_partial_file_reader(Dirname, Key) ->
     Filename0 = <<Key/binary, ".mustache">>,
     Filename  = ?IIF(Dirname =:= <<>>, Filename0, filename:join([Dirname, Filename0])),
     file:read_file(Filename).
-
-%% @doc escript entry point
--spec main(string()) -> ok.
-main(Args) ->
-    %% Load the application to be able to access its information
-    %% (e.g. --version option)
-    case application:load(bbmustache) of
-        ok -> ok;
-        {error, {already_loaded, bbmustache}} -> ok
-    end,
-    try
-        {ok, {Options, Commands}} = getopt:parse(option_spec_list(), Args),
-        process_commands(Options, Commands)
-    catch
-        throw:Reason ->
-            _ = io:format(standard_error, Reason),
-            halt(1)
-    end.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Function
@@ -709,6 +694,30 @@ is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
 is_recursive_data(_)                                -> false.
 -endif.
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Escriptize
+%%----------------------------------------------------------------------------------------------------------------------
+
+-ifdef(bbmustache_escriptize).
+
+%% @doc escript entry point
+-spec main(string()) -> ok.
+main(Args) ->
+    %% Load the application to be able to access its information
+    %% (e.g. --version option)
+    case application:load(bbmustache) of
+        ok -> ok;
+        {error, {already_loaded, bbmustache}} -> ok
+    end,
+    try
+        {ok, {Options, Commands}} = getopt:parse(option_spec_list(), Args),
+        process_commands(Options, Commands)
+    catch
+        throw:Reason ->
+            _ = io:format(standard_error, Reason),
+            halt(1)
+    end.
+
 %% @doc Processes command-line commands (render, ...)
 -spec process_commands([getopt:option()], [string()]) -> ok.
 process_commands(Opts, Cmds) ->
@@ -731,6 +740,7 @@ option_spec_list() ->
     {key_type,          $k,         "key-type",     atom,           "Key type (atom | binary | string)."},
     {data_file,         $d,         "data-file",    string,         "Erlang terms file."}
 ].
+
 -spec process_render([getopt:option()], [string()]) -> ok.
 process_render(Opts, TemplateFileNames) ->
     DataFileName = proplists:get_value(data_file, Opts),
@@ -774,3 +784,5 @@ read_data_files(Filename) ->
         {error, Reason} ->
             throw(io_lib:format("~s is unable to read. (~p)", [Filename, Reason]))
     end.
+
+-endif.
