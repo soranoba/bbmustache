@@ -777,9 +777,13 @@ print_version() ->
 -spec read_data_files(file:filename_all()) -> [term()].
 read_data_files(Filename) ->
     case file:consult(Filename) of
-        {ok, Map} when is_map(Map) ->
+        {ok, [Map]} when is_map(Map) ->
             maps:to_list(Map);
-        {ok, Terms} when is_list(Terms) ->
+        {ok, Terms0} when is_list(Terms0) ->
+            Terms = case Terms0 of
+                        [Term] when is_list(Term) -> Term;
+                        _                         -> Terms0
+                    end,
             lists:foldl(fun(Term, Acc) when is_tuple(Term) ->
                               [Term | Acc];
                            (InclusionFilename, Acc) when is_list(InclusionFilename) ->

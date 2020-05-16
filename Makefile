@@ -1,5 +1,7 @@
+CWD=$(shell pwd)
+
 .PHONY: ct
-all: compile eunit ct xref dialyze edoc escriptize
+all: compile escriptize eunit ct xref dialyze edoc
 
 compile:
 	@./rebar3 as dev compile
@@ -10,8 +12,8 @@ xref:
 clean:
 	@./rebar3 clean
 
-ct:
-	@./rebar3 ct
+ct: escriptize
+	@CMD_TOOL=$(CWD)/bbmustache ./rebar3 ct
 
 cover:
 	@./rebar3 cover
@@ -35,6 +37,7 @@ bench:
 
 escriptize:
 	@./rebar3 as dev escriptize
+	@cp _build/dev/bin/bbmustache .
 
 install: escriptize
-	cp _build/dev/bin/bbmustache /usr/local/bin
+	cp bbmustache /usr/local/bin

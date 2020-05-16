@@ -1,0 +1,7 @@
+#{
+  "name" => "bbmustache",
+  "data" => [
+             "a",
+             "b"
+            ]
+}.

@@ -156,7 +156,7 @@ make escriptize
 cat vars.config file.template
 {name, "hoge"}
 {{name}}
-./_build/dev/bin/bbmustache -d vars.config render file.template
+./bbmustache -d vars.config render file.template
 hoge
 ```
 
