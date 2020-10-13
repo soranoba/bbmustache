@@ -1,4 +1,11 @@
+arch:
+  - ppc64le
+  - amd64
 language: erlang
+before_install:
+  - if [ "$TRAVIS_ARCH" = "ppc64le" ]; then sudo apt-get update; sudo apt-get install rebar; fi
+
+
 otp_release:
   - 23.0
   - 22.3
@@ -7,6 +14,15 @@ otp_release:
   - 19.3
   - 18.3
   - 17.5
+# Disable otp_release 17.5, 18.3, 19.3 as these releases are not supported on Ubuntu16.04 for arch: ppc64le
+jobs: 
+ exclude:
+  - arch: ppc64le
+    otp_release: 17.5
+  - arch: ppc64le
+    otp_release: 18.3
+  - arch: ppc64le
+    otp_release: 19.3
 script: "rm -rf _build; make"
 notifications:
   email:
