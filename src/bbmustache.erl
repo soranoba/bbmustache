@@ -287,11 +287,7 @@ compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
       _ when is_list(Value) ->
             compile_impl(T, Data, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
                                              Result, Value), State);
-      _ when Value =:= false ->
-            compile_impl(T, Data, Result, State);
-      _ when Value =:= nil ->
-            compile_impl(T, Data, Result, State);
-      _ when Value =:= <<"">> ->
+      _ when Value =:= false; Value =:= nil; Value =:= <<"">> ->
             compile_impl(T, Data, Result, State);
       _ when is_function(Value, 2) ->
             Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
@@ -301,7 +297,7 @@ compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
     end;
 compile_impl([{'^', Keys, Tags} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
-    case Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= "" of
+    case Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= <<"">> of
         true  -> compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State);
         false -> compile_impl(T, Data, Result, State)
     end;

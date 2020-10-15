@@ -215,23 +215,23 @@ context_stack_test_() ->
       ?_assertEqual(<<"">>,
                     bbmustache:render(<<"{{#parent}}aaa{{parent.child}}bbb{{/parent}}">>,
                                       [{"parent", []}],
-                                      [raise_on_context_miss]))},
-     {"It hides content in # tag that is specified as \"\"",
-      ?_assertEqual(<<"">>,
-                    bbmustache:render(<<"{{#content}}hello world{{/content}}">>,
-                                      [{"content", ""}]))},
-     {"It hides content in # tag that is specified as \"\"",
-      ?_assertEqual(<<"">>,
-                    bbmustache:render(<<"{{#content}}hello world{{/content}}">>,
-                                      [{"content", nil}]))},
-     {"It shows content in ^ tag that is specified as \"\"",
-      ?_assertEqual(<<"hello world">>,
-                    bbmustache:render(<<"{{^content}}hello world{{/content}}">>,
-                                      [{"content", ""}]))},
-     {"It shows content in ^ tag that is specified as \"\"",
-      ?_assertEqual(<<"hello world">>,
-                    bbmustache:render(<<"{{^content}}hello world{{/content}}">>,
-                                      [{"content", nil}]))}
+                                      [raise_on_context_miss]))}
+    ].
+
+shows_or_hides_content_test_() ->
+    [
+     {"It hides content in # tag that is specified as empty list, empty binary, nil or false",
+      fun() ->
+        lists:foreach(fun(X) ->
+          ?assertEqual(<<"">>, bbmustache:render(<<"{{#content}}hello world{{/content}}">>, [{"content", X}]))
+        end, ["", <<"">>, nil, false])
+      end},
+     {"It show content in ^ tag that is specified as empty list, empty binary, nil or false",
+      fun() ->
+        lists:foreach(fun(X) ->
+          ?assertEqual(<<"hello world">>, bbmustache:render(<<"{{^content}}hello world{{/content}}">>, [{"content", X}]))
+        end, ["", <<"">>, nil, false])
+      end}
     ].
 
 escape_fun_test_() ->
