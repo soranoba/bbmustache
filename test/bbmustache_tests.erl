@@ -218,6 +218,22 @@ context_stack_test_() ->
                                       [raise_on_context_miss]))}
     ].
 
+shows_or_hides_content_test_() ->
+    [
+     {"It hides content in # tag that is specified as empty list, empty binary, nil or false",
+      fun() ->
+        lists:foreach(fun(X) ->
+          ?assertEqual(<<"">>, bbmustache:render(<<"{{#content}}hello world{{/content}}">>, [{"content", X}]))
+        end, ["", <<"">>, nil, false])
+      end},
+     {"It show content in ^ tag that is specified as empty list, empty binary, nil or false",
+      fun() ->
+        lists:foreach(fun(X) ->
+          ?assertEqual(<<"hello world">>, bbmustache:render(<<"{{^content}}hello world{{/content}}">>, [{"content", X}]))
+        end, ["", <<"">>, nil, false])
+      end}
+    ].
+
 escape_fun_test_() ->
     [
      {"It is able to specified own escape function",
