@@ -291,7 +291,7 @@ compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
             compile_impl(T, Data, Result, State);
       _ when Value =:= nil ->
             compile_impl(T, Data, Result, State);
-      _ when Value =:= "" ->
+      _ when Value =:= <<"">> ->
             compile_impl(T, Data, Result, State);
       _ when is_function(Value, 2) ->
             Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
