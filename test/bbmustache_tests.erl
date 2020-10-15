@@ -215,7 +215,23 @@ context_stack_test_() ->
       ?_assertEqual(<<"">>,
                     bbmustache:render(<<"{{#parent}}aaa{{parent.child}}bbb{{/parent}}">>,
                                       [{"parent", []}],
-                                      [raise_on_context_miss]))}
+                                      [raise_on_context_miss]))},
+     {"It hides content in # tag that is specified as \"\"",
+      ?_assertEqual(<<"">>,
+                    bbmustache:render(<<"{{#content}}hello world{{/content}}">>,
+                                      [{"content", ""}]))},
+     {"It hides content in # tag that is specified as \"\"",
+      ?_assertEqual(<<"">>,
+                    bbmustache:render(<<"{{#content}}hello world{{/content}}">>,
+                                      [{"content", nil}]))},
+     {"It shows content in ^ tag that is specified as \"\"",
+      ?_assertEqual(<<"hello world">>,
+                    bbmustache:render(<<"{{^content}}hello world{{/content}}">>,
+                                      [{"content", ""}]))},
+     {"It shows content in ^ tag that is specified as \"\"",
+      ?_assertEqual(<<"hello world">>,
+                    bbmustache:render(<<"{{^content}}hello world{{/content}}">>,
+                                      [{"content", nil}]))}
     ].
 
 escape_fun_test_() ->
