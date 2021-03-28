@@ -1,6 +1,6 @@
 bbmustache
 ===========
-[![Build Status](https://travis-ci.com/soranoba/bbmustache.svg?branch=master)](https://travis-ci.com/soranoba/bbmustache)
+[![CircleCI](https://circleci.com/gh/soranoba/bbmustache/tree/master.svg?style=svg)](https://circleci.com/gh/soranoba/bbmustache/tree/master)
 [![hex.pm version](https://img.shields.io/hexpm/v/bbmustache.svg)](https://hex.pm/packages/bbmustache)
 
 Binary pattern match Based Mustache template engine for Erlang/OTP.
