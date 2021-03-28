@@ -1,0 +1,30 @@
+version: 2.1
+
+jobs:
+  test:
+    parameters:
+      version:
+        type: string
+    docker:
+      - image: circleci/erlang:<< parameters.version >>
+        auth:
+          username: $DOCKERHUB_USER
+          password: $DOCKERHUB_PASSWORD
+    steps:
+      - checkout
+      - run: rm -rf _build; make
+
+workflows:
+  version: 2
+  general:
+    jobs:
+      - test:
+          matrix:
+            parameters:
+              version:
+                - "23.3"
+                - "22.3"
+                - "21.3"
+                - "20.3"
+                - "19.3"
+                - "18.3"
