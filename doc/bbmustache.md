@@ -77,7 +77,7 @@ key() = binary()
 
 In addition, `.` have a special meaning. <br />
 (1) `parent.child` ... find the child in the parent. <br />
-(2) `.` ... It means this. However, the type of correspond is only `[integer() | float() | binary() | string() | atom()]`. Otherwise, the behavior is undefined.
+(2) `.` ... It means current context.
 
 
 

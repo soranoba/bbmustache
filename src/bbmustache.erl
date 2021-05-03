@@ -70,23 +70,11 @@
 %%
 %% In addition, `.' have a special meaning. <br />
 %% (1) `parent.child' ... find the child in the parent. <br />
-%% (2) `.' ... It means this. However, the type of correspond is only `[integer() | float() | binary() | string() | atom()]'. Otherwise, the behavior is undefined.
+%% (2) `.' ... It means current context.
 %%
 
 -type source() :: binary().
 %% If you use lamda expressions, the original text is necessary.
-%%
-%% ```
-%% e.g.
-%%   template:
-%%     {{#lamda}}a{{b}}c{{/lamda}}
-%%   parse result:
-%%     {'#', <<"lamda">>, [<<"a">>, {'n', <<"b">>}, <<"c">>], <<"a{{b}}c">>}
-%% '''
-%%
-%% NOTE:
-%%   Since the binary reference is used internally, it is not a capacitively large waste.
-%%   However, the greater the number of tags used, it should use the wasted memory.
 
 -type tag()    :: {n,   [key()]}
                 | {'&', [key()]}
@@ -94,6 +82,19 @@
                 | {'^', [key()], [tag()]}
                 | {'>', key(), Indent :: source()}
                 | binary(). % plain text
+%% Tag is the internal data structure of the result of parsing the mustache template.
+%%
+%% ```
+%% e.g.
+%%   template:
+%%     {{#lamda}}a{{b}}c{{/lamda}}
+%%   parse result:
+%%     {'#', [<<"lamda">>], [<<"a">>, {'n', <<"b">>}, <<"c">>], <<"a{{b}}c">>}
+%% '''
+%%
+%% NOTE:
+%%   Since the binary reference is used internally, it is not a capacitively large waste.
+%%   However, the greater the number of tags used, it uses the wasted memory.
 
 -record(?MODULE,
         {
