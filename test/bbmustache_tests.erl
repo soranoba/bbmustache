@@ -205,6 +205,16 @@ raise_on_context_miss_test_() ->
                                       [raise_on_context_miss]))}
     ].
 
+falsy_value_test_() ->
+    [
+      {"It prints false when value is false",
+       ?_assertEqual(<<"false">>, bbmustache:render(<<"{{a}}">>, [{"a", false}]))},
+      {"It prints an empty string when value is null",
+        ?_assertEqual(<<"">>, bbmustache:render(<<"{{a}}">>, [{"a", null}]))},
+      {"It prints an empty string when value is nil",
+        ?_assertEqual(<<"">>, bbmustache:render(<<"{{a}}">>, [{"a", nil}]))}
+    ].
+
 context_stack_test_() ->
     [
      {"It can use the key which parent is not a dictionary (resolve #22)",

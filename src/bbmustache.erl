@@ -249,12 +249,12 @@ default_value_serializer(Float) when is_float(Float) ->
     io_lib_format:fwrite_g(Float);
 default_value_serializer(X) when is_map(X); is_tuple(X) ->
     error(unsupported_term, [X]);
+default_value_serializer(X) when X =:= null; X =:= nil ->
+    [];
+default_value_serializer(X) when is_atom(X) ->
+    list_to_binary(atom_to_list(X));
 default_value_serializer(X) ->
-    case is_falsy(X) of
-        true                  -> [];
-        false when is_atom(X) -> list_to_binary(atom_to_list(X));
-        false                 -> X
-    end.
+    X.
 
 %% @doc Default partial file reader
 -spec default_partial_file_reader(binary(), binary()) -> {ok, binary()} | {error, Reason :: term()}.
