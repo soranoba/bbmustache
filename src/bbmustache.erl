@@ -235,7 +235,7 @@ compile(Template, Data) ->
 %% All keys MUST be same type.
 -spec compile(template(), data(), [compile_option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
-    Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = []}),
+    Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = [], context_stack = [Data]}),
     iolist_to_binary(lists:reverse(Ret)).
 
 %% @doc Default value serializer for templtated values
@@ -282,19 +282,23 @@ compile_impl([{'&', Keys} | T], Data, Result, State) ->
     compile_impl(T, Data, ?ADD(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
-    NestedState = State#?MODULE{context_stack = [Data | State#?MODULE.context_stack]},
+    NestedState = State#?MODULE{context_stack = [Value | State#?MODULE.context_stack]},
     case {is_falsy(Value), is_recursive_data(Value)} of
         {true, _} -> compile_impl(T, Data, Result, State);
         {_, true} ->
             compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State);
         _ when is_list(Value) ->
-            compile_impl(T, Data, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
-                                             Result, Value), State);
+            NextResult = lists:foldl(fun(X, Acc) ->
+                %% It doesn't need to add Value to context_stack because List is not context.
+                LoopState = State#?MODULE{context_stack = [X | State#?MODULE.context_stack]},
+                compile_impl(Tags, X, Acc, LoopState)
+            end, Result, Value),
+            compile_impl(T, Data, NextResult, State);
         _ when is_function(Value, 2) ->
             Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
             compile_impl(T, Data, ?ADD(Ret, Result), State);
         _ ->
-            compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State)
+            compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State)
     end;
 compile_impl([{'^', Keys, Tags} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
@@ -638,7 +642,7 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 
 %% @doc fetch the value of the specified `Keys' from {@link data/0}
 %%
-%% - If `Keys' is `[<<".">>]', it returns `Data'.
+%% - If `Keys' is `[<<".">>]', it returns current context.
 %% - If raise_on_context_miss enabled, it raise an exception when missing `Keys'. Otherwise, it returns `Default'.
 -spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
 get_data_recursive(Keys, Data, Default, Template) ->
@@ -655,8 +659,8 @@ get_data_recursive(Keys, Data, Default, Template) ->
 -spec get_data_recursive_impl([key()], data(), template()) -> {ok, term()} | error.
 get_data_recursive_impl([], Data, _) ->
     {ok, Data};
-get_data_recursive_impl([<<".">>], Data, _) ->
-    {ok, Data};
+get_data_recursive_impl([<<".">>], _, #?MODULE{context_stack = [Context | _]}) ->
+    {ok, Context};
 get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = Stack} = State) ->
     case is_recursive_data(Data) andalso find_data(convert_keytype(Key, State), Data) of
         {ok, ChildData} ->

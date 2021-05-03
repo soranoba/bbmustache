@@ -3,8 +3,8 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 39219 |
-|mustache.erl | 677911 |
+|bbmustache | 39122 |
+|mustache.erl | 673416 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.
@@ -152,9 +152,9 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/sections.yml
 |Null is falsey|:white_check_mark:||
 |Context|:white_check_mark:||
 |Parent contexts|:white_check_mark:||
-|Variable test|||
+|Variable test|:white_check_mark:||
 |List Contexts|:white_check_mark:||
-|Deeply Nested Contexts|||
+|Deeply Nested Contexts|:white_check_mark:||
 |List|:white_check_mark:||
 |Empty List|:white_check_mark:|:white_check_mark:|
 |Doubled|:white_check_mark:|:white_check_mark:|

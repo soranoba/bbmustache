@@ -17,8 +17,6 @@
                     ]).
 -define(SKIP_CASES, [
                      % e.g. {"name.json", <<"Test Case">>}
-                     {"sections.json", <<"Variable test">>},
-                     {"sections.json", <<"Deeply Nested Contexts">>}
                     ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
