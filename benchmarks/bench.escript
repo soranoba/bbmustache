@@ -71,9 +71,13 @@ main2([Test | Tests], Result) ->
 
 spec_test(Render, Assoc) ->
     Data0    = proplists:get_value(<<"data">>, Assoc),
-    Data     = case proplists:get_value(<<"lambda">>, Data0) of
-                   undefined -> Data0;
-                   Lambda    -> [{<<"lambda">>, lambda(Lambda)} | proplists:delete(<<"lambda">>, Data0)]
+    Data     = case is_list(Data0) of
+                   false -> Data0;
+                   true  ->
+                        case proplists:get_value(<<"lambda">>, Data0) of
+                            undefined -> Data0;
+                            Lambda    -> [{<<"lambda">>, lambda(Lambda)} | proplists:delete(<<"lambda">>, Data0)]
+                        end
                end,
     Expected = proplists:get_value(<<"expected">>, Assoc),
     Template = proplists:get_value(<<"template">>, Assoc),

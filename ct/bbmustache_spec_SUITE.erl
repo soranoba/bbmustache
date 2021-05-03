@@ -11,9 +11,19 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SKIP_FILES, [
-                     "~lambdas.json"
+                     % e.g. "name.json"
+                     "~lambdas.json",
+                     "~inheritance.json"
                     ]).
 -define(SKIP_CASES, [
+                     % e.g. {"name.json", <<"Test Case">>}
+                     {"interpolation.json", <<"Basic Null Interpolation">>},
+                     {"interpolation.json", <<"Triple Mustache Null Interpolation">>},
+                     {"interpolation.json", <<"Ampersand Null Interpolation">>},
+                     {"inverted.json", <<"Null is falsey">>},
+                     {"sections.json", <<"Null is falsey">>},
+                     {"sections.json", <<"Variable test">>},
+                     {"sections.json", <<"Deeply Nested Contexts">>}
                     ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
