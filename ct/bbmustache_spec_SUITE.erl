@@ -20,8 +20,6 @@
                      {"interpolation.json", <<"Basic Null Interpolation">>},
                      {"interpolation.json", <<"Triple Mustache Null Interpolation">>},
                      {"interpolation.json", <<"Ampersand Null Interpolation">>},
-                     {"inverted.json", <<"Null is falsey">>},
-                     {"sections.json", <<"Null is falsey">>},
                      {"sections.json", <<"Variable test">>},
                      {"sections.json", <<"Deeply Nested Contexts">>}
                     ]).

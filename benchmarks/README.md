@@ -3,8 +3,8 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 36567 |
-|mustache.erl | 672254 |
+|bbmustache | 36802 |
+|mustache.erl | 666050 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.
@@ -102,7 +102,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/inverted.yml
 |:---|:------------|:------------|
 |Falsey|:white_check_mark:|:white_check_mark:|
 |Truthy|:white_check_mark:|:white_check_mark:|
-|Null is falsey|||
+|Null is falsey|:white_check_mark:||
 |Context|:white_check_mark:|:white_check_mark:|
 |List|:white_check_mark:|:white_check_mark:|
 |Empty List|:white_check_mark:|:white_check_mark:|
@@ -149,7 +149,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/sections.yml
 |:---|:------------|:------------|
 |Truthy|:white_check_mark:|:white_check_mark:|
 |Falsey|:white_check_mark:|:white_check_mark:|
-|Null is falsey|||
+|Null is falsey|:white_check_mark:||
 |Context|:white_check_mark:||
 |Parent contexts|:white_check_mark:||
 |Variable test|||

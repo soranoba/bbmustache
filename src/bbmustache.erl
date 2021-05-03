@@ -281,23 +281,22 @@ compile_impl([{'&', Keys} | T], Data, Result, State) ->
 compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
     NestedState = State#?MODULE{context_stack = [Data | State#?MODULE.context_stack]},
-    case is_recursive_data(Value) of
-      true ->
+    case {is_falsy(Value), is_recursive_data(Value)} of
+        {true, _} -> compile_impl(T, Data, Result, State);
+        {_, true} ->
             compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State);
-      _ when is_list(Value) ->
+        _ when is_list(Value) ->
             compile_impl(T, Data, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
                                              Result, Value), State);
-      _ when Value =:= false; Value =:= nil; Value =:= <<"">> ->
-            compile_impl(T, Data, Result, State);
-      _ when is_function(Value, 2) ->
+        _ when is_function(Value, 2) ->
             Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
             compile_impl(T, Data, ?ADD(Ret, Result), State);
-      _ ->
+        _ ->
             compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State)
     end;
 compile_impl([{'^', Keys, Tags} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
-    case Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= <<"">> of
+    case is_falsy(Value) of
         true  -> compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State);
         false -> compile_impl(T, Data, Result, State)
     end;
@@ -503,6 +502,11 @@ split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
                     end
             end
     end.
+
+%% @doc Returns true if treated as false. Otherwise it returns false.
+-spec is_falsy(term()) -> boolean().
+is_falsy(Value) ->
+    Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= null orelse Value =:= <<"">>.
 
 %% @doc if it is standalone line, remove spaces from edge.
 -spec standalone(#state{}, binary(), [tag()]) -> {#state{}, StashPre :: binary(), Post :: binary(), [tag()]}.
