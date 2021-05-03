@@ -17,9 +17,6 @@
                     ]).
 -define(SKIP_CASES, [
                      % e.g. {"name.json", <<"Test Case">>}
-                     {"interpolation.json", <<"Basic Null Interpolation">>},
-                     {"interpolation.json", <<"Triple Mustache Null Interpolation">>},
-                     {"interpolation.json", <<"Ampersand Null Interpolation">>},
                      {"sections.json", <<"Variable test">>},
                      {"sections.json", <<"Deeply Nested Contexts">>}
                     ]).

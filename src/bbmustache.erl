@@ -246,12 +246,14 @@ default_value_serializer(Float) when is_float(Float) ->
     %% NOTE: It is the same behaviour as io_lib:format("~p", [Float]), but it is fast than.
     %%       http://www.cs.indiana.edu/~dyb/pubs/FP-Printing-PLDI96.pdf
     io_lib_format:fwrite_g(Float);
-default_value_serializer(Atom) when is_atom(Atom) ->
-    list_to_binary(atom_to_list(Atom));
 default_value_serializer(X) when is_map(X); is_tuple(X) ->
     error(unsupported_term, [X]);
 default_value_serializer(X) ->
-    X.
+    case is_falsy(X) of
+        true                  -> [];
+        false when is_atom(X) -> list_to_binary(atom_to_list(X));
+        false                 -> X
+    end.
 
 %% @doc Default partial file reader
 -spec default_partial_file_reader(binary(), binary()) -> {ok, binary()} | {error, Reason :: term()}.

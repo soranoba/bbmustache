@@ -3,8 +3,8 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 36802 |
-|mustache.erl | 666050 |
+|bbmustache | 39219 |
+|mustache.erl | 677911 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.
@@ -65,9 +65,9 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/interpolation.yml
 |Basic Decimal Interpolation|:white_check_mark:|:white_check_mark:|
 |Triple Mustache Decimal Interpolation|:white_check_mark:|:white_check_mark:|
 |Ampersand Decimal Interpolation|:white_check_mark:|:white_check_mark:|
-|Basic Null Interpolation|||
-|Triple Mustache Null Interpolation|||
-|Ampersand Null Interpolation|||
+|Basic Null Interpolation|:white_check_mark:||
+|Triple Mustache Null Interpolation|:white_check_mark:||
+|Ampersand Null Interpolation|:white_check_mark:||
 |Basic Context Miss Interpolation|:white_check_mark:|:white_check_mark:|
 |Triple Mustache Context Miss Interpolation|:white_check_mark:|:white_check_mark:|
 |Ampersand Context Miss Interpolation|:white_check_mark:|:white_check_mark:|
