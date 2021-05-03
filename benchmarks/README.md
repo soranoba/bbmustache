@@ -3,15 +3,15 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 44052 |
-|mustache.erl | 682433 |
+|bbmustache | 39122 |
+|mustache.erl | 673416 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.
 
 
 ## comments
-https://github.com/mustache/spec/tree/v1.1.3/specs/comments.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/comments.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -29,7 +29,7 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/comments.yml
 
 
 ## delimiters
-https://github.com/mustache/spec/tree/v1.1.3/specs/delimiters.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/delimiters.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -50,7 +50,7 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/delimiters.yml
 
 
 ## interpolation
-https://github.com/mustache/spec/tree/v1.1.3/specs/interpolation.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/interpolation.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -65,6 +65,9 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/interpolation.yml
 |Basic Decimal Interpolation|:white_check_mark:|:white_check_mark:|
 |Triple Mustache Decimal Interpolation|:white_check_mark:|:white_check_mark:|
 |Ampersand Decimal Interpolation|:white_check_mark:|:white_check_mark:|
+|Basic Null Interpolation|:white_check_mark:||
+|Triple Mustache Null Interpolation|:white_check_mark:||
+|Ampersand Null Interpolation|:white_check_mark:||
 |Basic Context Miss Interpolation|:white_check_mark:|:white_check_mark:|
 |Triple Mustache Context Miss Interpolation|:white_check_mark:|:white_check_mark:|
 |Ampersand Context Miss Interpolation|:white_check_mark:|:white_check_mark:|
@@ -76,6 +79,11 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/interpolation.yml
 |Dotted Names - Broken Chain Resolution|:white_check_mark:||
 |Dotted Names - Initial Resolution|:white_check_mark:||
 |Dotted Names - Context Precedence|:white_check_mark:||
+|Implicit Iterators - Basic Interpolation|:white_check_mark:||
+|Implicit Iterators - HTML Escaping|:white_check_mark:||
+|Implicit Iterators - Triple Mustache|:white_check_mark:||
+|Implicit Iterators - Ampersand|:white_check_mark:||
+|Implicit Iterators - Basic Integer Interpolation|:white_check_mark:||
 |Interpolation - Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
 |Triple Mustache - Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
 |Ampersand - Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
@@ -88,12 +96,13 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/interpolation.yml
 
 
 ## inverted
-https://github.com/mustache/spec/tree/v1.1.3/specs/inverted.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/inverted.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
 |Falsey|:white_check_mark:|:white_check_mark:|
 |Truthy|:white_check_mark:|:white_check_mark:|
+|Null is falsey|:white_check_mark:||
 |Context|:white_check_mark:|:white_check_mark:|
 |List|:white_check_mark:|:white_check_mark:|
 |Empty List|:white_check_mark:|:white_check_mark:|
@@ -116,7 +125,7 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/inverted.yml
 
 
 ## partials
-https://github.com/mustache/spec/tree/v1.1.3/specs/partials.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/partials.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -134,13 +143,17 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/partials.yml
 
 
 ## sections
-https://github.com/mustache/spec/tree/v1.1.3/specs/sections.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/sections.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
 |Truthy|:white_check_mark:|:white_check_mark:|
 |Falsey|:white_check_mark:|:white_check_mark:|
+|Null is falsey|:white_check_mark:||
 |Context|:white_check_mark:||
+|Parent contexts|:white_check_mark:||
+|Variable test|:white_check_mark:||
+|List Contexts|:white_check_mark:||
 |Deeply Nested Contexts|:white_check_mark:||
 |List|:white_check_mark:||
 |Empty List|:white_check_mark:|:white_check_mark:|
@@ -166,8 +179,36 @@ https://github.com/mustache/spec/tree/v1.1.3/specs/sections.yml
 |Padding|:white_check_mark:|:white_check_mark:|
 
 
+## ~inheritance
+https://github.com/mustache/spec/tree/v1.2.1/specs/~inheritance.yml
+
+|    |bbmustache|mustache.erl|
+|:---|:------------|:------------|
+|Default|||
+|Variable|||
+|Triple Mustache|||
+|Sections|||
+|Negative Sections|||
+|Mustache Injection|||
+|Inherit|||
+|Overridden content|||
+|Data does not override block|||
+|Data does not override block default|||
+|Overridden parent|||
+|Two overridden parents|||
+|Override parent with newlines|||
+|Inherit indentation|||
+|Only one override|||
+|Parent template|||
+|Recursion|||
+|Multi-level inheritance|||
+|Multi-level inheritance, no sub child|||
+|Text inside parent|||
+|Text inside parent|||
+
+
 ## ~lambdas
-https://github.com/mustache/spec/tree/v1.1.3/specs/~lambdas.yml
+https://github.com/mustache/spec/tree/v1.2.1/specs/~lambdas.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|

@@ -70,23 +70,11 @@
 %%
 %% In addition, `.' have a special meaning. <br />
 %% (1) `parent.child' ... find the child in the parent. <br />
-%% (2) `.' ... It means this. However, the type of correspond is only `[integer() | float() | binary() | string() | atom()]'. Otherwise, the behavior is undefined.
+%% (2) `.' ... It means current context.
 %%
 
 -type source() :: binary().
 %% If you use lamda expressions, the original text is necessary.
-%%
-%% ```
-%% e.g.
-%%   template:
-%%     {{#lamda}}a{{b}}c{{/lamda}}
-%%   parse result:
-%%     {'#', <<"lamda">>, [<<"a">>, {'n', <<"b">>}, <<"c">>], <<"a{{b}}c">>}
-%% '''
-%%
-%% NOTE:
-%%   Since the binary reference is used internally, it is not a capacitively large waste.
-%%   However, the greater the number of tags used, it should use the wasted memory.
 
 -type tag()    :: {n,   [key()]}
                 | {'&', [key()]}
@@ -94,6 +82,19 @@
                 | {'^', [key()], [tag()]}
                 | {'>', key(), Indent :: source()}
                 | binary(). % plain text
+%% Tag is the internal data structure of the result of parsing the mustache template.
+%%
+%% ```
+%% e.g.
+%%   template:
+%%     {{#lamda}}a{{b}}c{{/lamda}}
+%%   parse result:
+%%     {'#', [<<"lamda">>], [<<"a">>, {'n', <<"b">>}, <<"c">>], <<"a{{b}}c">>}
+%% '''
+%%
+%% NOTE:
+%%   Since the binary reference is used internally, it is not a capacitively large waste.
+%%   However, the greater the number of tags used, it uses the wasted memory.
 
 -record(?MODULE,
         {
@@ -235,7 +236,7 @@ compile(Template, Data) ->
 %% All keys MUST be same type.
 -spec compile(template(), data(), [compile_option()]) -> binary().
 compile(#?MODULE{data = Tags} = T, Data, Options) ->
-    Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = []}),
+    Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = [], context_stack = [Data]}),
     iolist_to_binary(lists:reverse(Ret)).
 
 %% @doc Default value serializer for templtated values
@@ -246,12 +247,14 @@ default_value_serializer(Float) when is_float(Float) ->
     %% NOTE: It is the same behaviour as io_lib:format("~p", [Float]), but it is fast than.
     %%       http://www.cs.indiana.edu/~dyb/pubs/FP-Printing-PLDI96.pdf
     io_lib_format:fwrite_g(Float);
-default_value_serializer(Atom) when is_atom(Atom) ->
-    list_to_binary(atom_to_list(Atom));
 default_value_serializer(X) when is_map(X); is_tuple(X) ->
     error(unsupported_term, [X]);
 default_value_serializer(X) ->
-    X.
+    case is_falsy(X) of
+        true                  -> [];
+        false when is_atom(X) -> list_to_binary(atom_to_list(X));
+        false                 -> X
+    end.
 
 %% @doc Default partial file reader
 -spec default_partial_file_reader(binary(), binary()) -> {ok, binary()} | {error, Reason :: term()}.
@@ -280,24 +283,27 @@ compile_impl([{'&', Keys} | T], Data, Result, State) ->
     compile_impl(T, Data, ?ADD(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
-    NestedState = State#?MODULE{context_stack = [Data | State#?MODULE.context_stack]},
-    case is_recursive_data(Value) of
-      true ->
+    NestedState = State#?MODULE{context_stack = [Value | State#?MODULE.context_stack]},
+    case {is_falsy(Value), is_recursive_data(Value)} of
+        {true, _} -> compile_impl(T, Data, Result, State);
+        {_, true} ->
             compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State);
-      _ when is_list(Value) ->
-            compile_impl(T, Data, lists:foldl(fun(X, Acc) -> compile_impl(Tags, X, Acc, NestedState) end,
-                                             Result, Value), State);
-      _ when Value =:= false; Value =:= nil; Value =:= <<"">> ->
-            compile_impl(T, Data, Result, State);
-      _ when is_function(Value, 2) ->
+        _ when is_list(Value) ->
+            NextResult = lists:foldl(fun(X, Acc) ->
+                %% It doesn't need to add Value to context_stack because List is not context.
+                LoopState = State#?MODULE{context_stack = [X | State#?MODULE.context_stack]},
+                compile_impl(Tags, X, Acc, LoopState)
+            end, Result, Value),
+            compile_impl(T, Data, NextResult, State);
+        _ when is_function(Value, 2) ->
             Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
             compile_impl(T, Data, ?ADD(Ret, Result), State);
-      _ ->
-            compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State)
+        _ ->
+            compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State)
     end;
 compile_impl([{'^', Keys, Tags} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
-    case Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= <<"">> of
+    case is_falsy(Value) of
         true  -> compile_impl(T, Data, compile_impl(Tags, Data, Result, State), State);
         false -> compile_impl(T, Data, Result, State)
     end;
@@ -504,6 +510,11 @@ split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
             end
     end.
 
+%% @doc Returns true if treated as false. Otherwise it returns false.
+-spec is_falsy(term()) -> boolean().
+is_falsy(Value) ->
+    Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= null orelse Value =:= <<"">>.
+
 %% @doc if it is standalone line, remove spaces from edge.
 -spec standalone(#state{}, binary(), [tag()]) -> {#state{}, StashPre :: binary(), Post :: binary(), [tag()]}.
 standalone(#state{standalone = false} = State, Post, [Pre | Result]) ->
@@ -632,7 +643,7 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 
 %% @doc fetch the value of the specified `Keys' from {@link data/0}
 %%
-%% - If `Keys' is `[<<".">>]', it returns `Data'.
+%% - If `Keys' is `[<<".">>]', it returns current context.
 %% - If raise_on_context_miss enabled, it raise an exception when missing `Keys'. Otherwise, it returns `Default'.
 -spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
 get_data_recursive(Keys, Data, Default, Template) ->
@@ -649,8 +660,8 @@ get_data_recursive(Keys, Data, Default, Template) ->
 -spec get_data_recursive_impl([key()], data(), template()) -> {ok, term()} | error.
 get_data_recursive_impl([], Data, _) ->
     {ok, Data};
-get_data_recursive_impl([<<".">>], Data, _) ->
-    {ok, Data};
+get_data_recursive_impl([<<".">>], _, #?MODULE{context_stack = [Context | _]}) ->
+    {ok, Context};
 get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = Stack} = State) ->
     case is_recursive_data(Data) andalso find_data(convert_keytype(Key, State), Data) of
         {ok, ChildData} ->

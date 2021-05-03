@@ -11,9 +11,12 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SKIP_FILES, [
-                     "~lambdas.json"
+                     % e.g. "name.json"
+                     "~lambdas.json",
+                     "~inheritance.json"
                     ]).
 -define(SKIP_CASES, [
+                     % e.g. {"name.json", <<"Test Case">>}
                     ]).
 
 %%----------------------------------------------------------------------------------------------------------------------
