@@ -57,12 +57,12 @@ By specifying options, the type are greatly relaxed and equal to `term/0`.
 
 
 <pre><code>
-data_key() = atom() | binary() | string()
+data_key() = atom() | binary() | string() | fun((binary()) -&gt; term())
 </code></pre>
 
  You can choose one from these as the type of key in [`recursive_data/0`](#recursive_data-0).
 The default is `string/0`.
-If you want to change this, you need to specify `key_type` in [`compile_option/0`](#compile_option-0).
+If you want to change this, you need to specify `key_type` in [`compile_option/0`](#compile_option-0). To customize the how tag is converted into a key in [`recursive_data/0`](#recursive_data-0) a 1-arity function can be passed that accepts the key name from the template and converts it to the appropriate key in [`recursive_data/0`](#recursive_data-0).
 
 
 

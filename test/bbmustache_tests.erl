@@ -141,7 +141,7 @@ top_level_context_render_test_() ->
       ?_assertEqual(<<"yes">>, bbmustache:render(<<"{{.}}">>, #{"a" => "1"}, [{value_serializer, fun(#{"a" := "1"}) -> <<"yes">> end}]))}
     ].
 
-atom_and_binary_key_test_() ->
+atom_binary_and_function_key_test_() ->
     [
      {"atom key",
       fun() ->
@@ -157,6 +157,13 @@ atom_and_binary_key_test_() ->
               ?assertEqual(<<"<b>Willy is awesome.</b>">>,
                            bbmustache:render(<<"{{#wrapped}}{{name}} is awesome.{{dummy}}{{/wrapped}}">>,
                                              [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, binary}]))
+      end},
+     {"custom key function",
+      fun() ->
+              F = fun(Text, Render) -> ["<b>", Render(Text), "</b>"] end,
+              ?assertEqual(<<"<b>Willy is awesome.</b>">>,
+                           bbmustache:render(<<"{{#WRAPPED}}{{NAME}} is awesome.{{DUMMY}}{{/WRAPPED}}">>,
+                                             [{<<"name">>, "Willy"}, {<<"wrapped">>, F}], [{key_type, fun(Key) -> string:lowercase(Key) end}]))
       end}
     ].
 

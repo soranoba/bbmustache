@@ -156,10 +156,10 @@
 %% @see render/2
 %% @see compile/2
 
--type data_key() :: atom() | binary() | string().
+-type data_key() :: atom() | binary() | string() | fun((binary()) -> term()).
 %% You can choose one from these as the type of key in {@link recursive_data/0}.
 %% The default is `string/0'.
-%% If you want to change this, you need to specify `key_type' in {@link compile_option/0}.
+%% If you want to change this, you need to specify `key_type' in {@link compile_option/0}. To customize the how tag is converted into a key in {@link recursive_data/0} a 1-arity function can be passed that accepts the key name from the template and converts it to the appropriate key in {@link recursive_data/0}.
 
 -ifdef(namespaced_types).
 -type recursive_data() :: #{data_key() => term()} | [{data_key(), term()}].
@@ -638,7 +638,8 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
                 _:_ -> <<" ">> % It is not always present in data/0
             end;
         string -> binary_to_list(KeyBin);
-        binary -> KeyBin
+        binary -> KeyBin;
+        Function when is_function(Function, 1) -> Function(KeyBin)
     end.
 
 %% @doc fetch the value of the specified `Keys' from {@link data/0}
