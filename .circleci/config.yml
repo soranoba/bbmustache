@@ -5,6 +5,8 @@ jobs:
     parameters:
       version:
         type: string
+      commands:
+        type: string
     docker:
       - image: circleci/erlang:<< parameters.version >>
         auth:
@@ -12,19 +14,37 @@ jobs:
           password: $DOCKERHUB_PASSWORD
     steps:
       - checkout
-      - run: rm -rf _build; make
+      - run: rm -rf _build; make << parameters.commands >>
 
 workflows:
   version: 2
   general:
     jobs:
       - test:
-          matrix:
-            parameters:
-              version:
-                - "23.3"
-                - "22.3"
-                - "21.3"
-                - "20.3"
-                - "19.3"
-                - "18.3"
+          name: "test-24"
+          version: "24"
+          commands: "ci edoc"
+      - test:
+          name: "test-23.3"
+          version: "23.3"
+          commands: "ci edoc"
+      - test:
+          name: "test-22.3"
+          version: "22.3"
+          commands: "ci edoc"
+      - test:
+          name: "test-21.3"
+          version: "21.3"
+          commands: "ci edoc"
+      - test:
+          name: "test-20.3"
+          version: "20.3"
+          commands: "ci"
+      - test:
+          name: "test-19.3"
+          version: "19.3"
+          commands: "ci"
+      - test:
+          name: "test-18.3"
+          version: "18.3"
+          commands: "ci"
