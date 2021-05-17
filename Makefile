@@ -2,6 +2,7 @@ CWD=$(shell pwd)
 
 .PHONY: ct
 all: compile escriptize eunit ct xref dialyze edoc
+ci: compile escriptize eunit ct xref dialyze
 
 compile:
 	@./rebar3 as dev compile
