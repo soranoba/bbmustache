@@ -22,7 +22,8 @@
          compile/2,
          compile/3,
          default_value_serializer/1,
-         default_partial_file_reader/2
+         default_partial_file_reader/2,
+         list_variables/1
         ]).
 
 -ifdef(bbmustache_escriptize).
@@ -255,6 +256,18 @@ default_value_serializer(X) when is_atom(X) ->
     list_to_binary(atom_to_list(X));
 default_value_serializer(X) ->
     X.
+
+
+%% @doc Returns a list of all the variables which were found in the Template
+list_variables({?MODULE,StmtList,_,_,_,_}) -> lists:usort(compile_varlist(StmtList,[])).
+compile_varlist([],Acc) ->  Acc;
+compile_varlist([Str|T],Acc) when is_bitstring(Str)-> compile_varlist(T,Acc);
+compile_varlist([{_Atom,[Key]}|T],Acc) -> compile_varlist(T,[Key|Acc]);
+compile_varlist([{_Atom,[Key],_Indents}|T],Acc) -> compile_varlist(T,[Key|Acc]);
+compile_varlist([{_Atom,[Key],More,_TxtFormat}|T],Acc) ->
+  RecurAcc = compile_varlist(More,Acc),
+  compile_varlist(T,[Key|RecurAcc]).
+
 
 %% @doc Default partial file reader
 -spec default_partial_file_reader(binary(), binary()) -> {ok, binary()} | {error, Reason :: term()}.

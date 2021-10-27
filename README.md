@@ -94,6 +94,21 @@ hoge
 Data files (-d) support a single assoc list, a single map, and [consult](https://erlang.org/doc/man/file.html#consult-1) format.<br>
 Note: the behind term has a high priority in all cases. it is a result of supporting to allow for embedding relative file paths as in [config](http://erlang.org/doc/man/config.html).
 
+
+### Listing variables inside a template
+
+In order to provide more feedback to the user/instrumenting code - the library
+has a "list_variables(Template)" function, which can list the variables inside
+the template:
+
+```
+$ rebar3 shell
+1> T = bbmustache:parse_file(<<"./example/deps.template">>).
+2> bbmustache:list_variables(T).
+[<<"deps">>,<<"last?">>,<<"name">>,<<"version">>]
+```
+
+
 ### More information
 - For the alias of mustache, Please refer to [ManPage](http://mustache.github.io/mustache.5.html) and [Specification](https://github.com/mustache/spec)
 - For the options of this library, please see [doc](doc)
