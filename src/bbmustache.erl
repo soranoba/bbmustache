@@ -252,7 +252,7 @@ default_value_serializer(X) when is_map(X); is_tuple(X) ->
 default_value_serializer(X) when X =:= null; X =:= nil ->
     [];
 default_value_serializer(X) when is_atom(X) ->
-    list_to_binary(atom_to_list(X));
+    unicode:characters_to_binary(atom_to_list(X));
 default_value_serializer(X) ->
     X.
 
@@ -275,7 +275,7 @@ compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
-    Value = iolist_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
+    Value = unicode:characters_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
     EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
     compile_impl(T, Data, ?ADD(EscapeFun(Value), Result), State);
 compile_impl([{'&', Keys} | T], Data, Result, State) ->

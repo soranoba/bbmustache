@@ -11,12 +11,14 @@
 
          variables_ct/1, sections_ct1/1, sections_ct2/1, sections_ct3/1, sections_ct4/1,
          lambdas_ct/1, comments_ct/1, partials_ct/1, delimiter_ct/1, dot_ct/1, dot_unescape_ct/1,
-         indent_partials_ct/1, not_found_partials_ct1/1, not_found_partials_ct2/1, not_found_partials_ct3/1
+         indent_partials_ct/1, not_found_partials_ct1/1, not_found_partials_ct2/1, not_found_partials_ct3/1,
+         context_stack_ct/1, context_stack_ct2/1, partial_custom_reader_ct/1,
+         unicode_render_ct/1
         ]).
 -define(ALL_TEST, [variables_ct, sections_ct1, sections_ct2, sections_ct3, sections_ct4,
                    lambdas_ct, comments_ct, partials_ct, delimiter_ct, dot_ct, dot_unescape_ct,
                    indent_partials_ct, not_found_partials_ct1, not_found_partials_ct2, not_found_partials_ct3,
-                   context_stack_ct, context_stack_ct2, partial_custom_reader_ct]).
+                   context_stack_ct, context_stack_ct2, partial_custom_reader_ct, unicode_render_ct]).
 
 -define(config2, proplists:get_value).
 -define(debug(X), begin io:format("~p", [X]), X end).
@@ -203,6 +205,40 @@ partial_custom_reader_ct(Config) ->
 
     ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))([])),
                                           ?config2(options, Config, []) ++ [{partial_file_reader, fun(_, Key) -> Key end}])).
+
+-ifdef(unicode_supported).
+unicode_render_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"unicode.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"unicode.result">>])),
+
+    Data1 = [
+            {"whoami", "猫"},
+            {"name", "まだない"}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data1)), ?config2(options, Config, []))),
+
+    Data2 = [
+            {"whoami", <<"猫"/utf8>>},
+            {"name", <<"まだない"/utf8>>}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data2)), ?config2(options, Config, []))),
+
+    Data3 = [
+            {"whoami", '猫'},
+            {"name", 'まだない'}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data3)), ?config2(options, Config, []))).
+-else.
+unicode_render_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"unicode.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"unicode.result">>])),
+
+    Data1 = [
+            {"whoami", "猫"},
+            {"name", "まだない"}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data1)), ?config2(options, Config, []))).
+-endif.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
