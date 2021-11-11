@@ -275,7 +275,7 @@ compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
-    Value = iolist_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
+    Value = unicode:characters_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
     EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
     compile_impl(T, Data, ?ADD(EscapeFun(Value), Result), State);
 compile_impl([{'&', Keys} | T], Data, Result, State) ->
