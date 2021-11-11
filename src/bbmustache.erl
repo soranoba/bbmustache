@@ -252,7 +252,7 @@ default_value_serializer(X) when is_map(X); is_tuple(X) ->
 default_value_serializer(X) when X =:= null; X =:= nil ->
     [];
 default_value_serializer(X) when is_atom(X) ->
-    list_to_binary(atom_to_list(X));
+    unicode:characters_to_binary(atom_to_list(X));
 default_value_serializer(X) ->
     X.
 

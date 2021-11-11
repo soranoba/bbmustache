@@ -206,15 +206,39 @@ partial_custom_reader_ct(Config) ->
     ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))([])),
                                           ?config2(options, Config, []) ++ [{partial_file_reader, fun(_, Key) -> Key end}])).
 
+-ifdef(unicode_supported).
 unicode_render_ct(Config) ->
     Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"unicode.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"unicode.result">>])),
 
-    Data = [
+    Data1 = [
             {"whoami", "猫"},
             {"name", "まだない"}
            ],
-    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data1)), ?config2(options, Config, []))),
+
+    Data2 = [
+            {"whoami", <<"猫"/utf8>>},
+            {"name", <<"まだない"/utf8>>}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data2)), ?config2(options, Config, []))),
+
+    Data3 = [
+            {"whoami", '猫'},
+            {"name", 'まだない'}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data3)), ?config2(options, Config, []))).
+-else.
+unicode_render_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"unicode.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"unicode.result">>])),
+
+    Data1 = [
+            {"whoami", "猫"},
+            {"name", "まだない"}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data1)), ?config2(options, Config, []))).
+-endif.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
