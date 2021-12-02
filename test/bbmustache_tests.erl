@@ -11,9 +11,9 @@
 -define(FILE_ERROR,  file_not_found).
 
 -define(NT_S(X, Y), ?_assertMatch({_, X, _, _, _, _}, bbmustache:parse_binary(Y))).
-%% parse_binary_test generater (success case)
+%% parse_binary_test generator (success case)
 -define(NT_F(X, Y), ?_assertError(X,                  bbmustache:parse_binary(Y))).
-%% parse_binary_test generater (failure case)
+%% parse_binary_test generator (failure case)
 
 parse_file_test_() ->
     [
@@ -221,7 +221,7 @@ context_stack_test_() ->
       ?_assertEqual(<<"aaabbb">>,
                     bbmustache:render(<<"{{#parent}}aaa{{parent.child}}bbb{{/parent}}">>,
                                       [{"parent", true}]))},
-     {"It hide all tags in # tag that is specfied empty list",
+     {"It hide all tags in # tag that is specified empty list",
       ?_assertEqual(<<"">>,
                     bbmustache:render(<<"{{#parent}}aaa{{parent.child}}bbb{{/parent}}">>,
                                       [{"parent", []}],
