@@ -37,7 +37,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/delimiters.yml
 |Special Characters|:white_check_mark:||
 |Sections|:white_check_mark:||
 |Inverted Sections|:white_check_mark:||
-|Partial Inheritence|:white_check_mark:||
+|Partial Inheritance|:white_check_mark:||
 |Post-Partial Behavior|:white_check_mark:||
 |Surrounding Whitespace|:white_check_mark:||
 |Outlying Whitespace (Inline)|:white_check_mark:||
