@@ -1,0 +1,8 @@
+[
+  {name, "mustache"},
+  "atom.include",
+  {data, [
+          "a",
+          "b"
+         ]}
+].

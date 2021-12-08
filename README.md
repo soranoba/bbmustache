@@ -1,16 +1,17 @@
 bbmustache
 ===========
-[![Build Status](https://travis-ci.org/soranoba/bbmustache.svg?branch=master)](https://travis-ci.org/soranoba/bbmustache)
+[![CircleCI](https://circleci.com/gh/soranoba/bbmustache/tree/master.svg?style=svg)](https://circleci.com/gh/soranoba/bbmustache/tree/master)
 [![hex.pm version](https://img.shields.io/hexpm/v/bbmustache.svg)](https://hex.pm/packages/bbmustache)
 
 Binary pattern match Based Mustache template engine for Erlang/OTP.
 
 ## Overview
 - Binary pattern match based mustache template engine for Erlang/OTP.
- - Do not use a regular expression !!
+  - It means do not use regular expressions.
 - Support maps and associative arrays.
+- Officially support is OTP17 or later.
 
-### What is Mustach ?
+### What is Mustache ?
 A logic-less templates.
 - [{{mustache}}](http://mustache.github.io/)
 
@@ -24,7 +25,6 @@ $ make start
 Erlang/OTP 17 [erts-6.3] [source-f9282c6] [64-bit] [smp:4:4] [async-threads:10] [hipe] [kernel-poll:true]
 
 Eshell V6.3  (abort with ^G)
-1> {ok,[bbmustache]}
 1> bbmustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
 <<"hoge">>
 2> bbmustache:render(<<"{{name}}">>, [{"name", "hoge"}]).
@@ -47,11 +47,9 @@ Add the following settings.
 {deps, [bbmustache]}.
 ```
 
-If you don't use the rebar and use the OTP17 or later, this library should be compile with `-Dnamespaced_types`.
-
 ### How to use simple Mustache
 
-Map (R17 or later)
+Map
 ```erlang
 1> bbmustache:render(<<"{{name}}">>, #{"name" => "hoge"}).
 <<"hoge">>
@@ -83,90 +81,92 @@ Associative array
 <<"hoge">>
 ```
 
-### Undocumented function
-Although present in many of the implementation, there is a function that does not exist in the document of the mustache.<br />
-The `bbmustache` corresponds as much as possible to it.
+### Use as a command-line tool
 
-#### Render plain lists
-If you specify the dot as a key, it points to this function.
-
-```erlang
-%% template.mustache
-{{#mylist}}
-  escape
-    {{.}}
-  unescape
-    {{{.}}}
-{{/mylist}}
-
-%% script
-1> bbmustache:compile(bbmustache:parse_file("template.mustache"), #{"mylist" => ["<b>1</b>", "<b>2</b>", "<b>3</b>"]}).
-<<"  escape\n    &lt;b&gt;1&lt;&#x2F;b&gt;\n  unescape\n    <b>1</b>\n  escape\n    &lt;b&gt;2&lt;&#x2F;b&gt;\n  unescape\n   "...>>
-
-%% result
-  escape
-    &lt;b&gt;1&lt;&#x2F;b&gt;
-  unescape
-    <b>1</b>
-  escape
-    &lt;b&gt;2&lt;&#x2F;b&gt;
-  unescape
-    <b>2</b>
-  escape
-    &lt;b&gt;3&lt;&#x2F;b&gt;
-  unescape
-    <b>3</b>
+```bash
+make escriptize
+echo '{"name", "hoge"}.' > vars.config
+echo '{{name}}' > template.mustache
+./bbmustache -d vars.config template.mustache
+hoge
 ```
-However, the types of correspond is only these.<br />
-The behavior when given the other types, it is undefined.
 
-```erlang
-[integer() | float() | binary() | string() | atom()]
-```
+Data files (-d) support a single assoc list, a single map, and [consult](https://erlang.org/doc/man/file.html#consult-1) format.<br>
+Note: the behind term has a high priority in all cases. it is a result of supporting to allow for embedding relative file paths as in [config](http://erlang.org/doc/man/config.html).
 
 ### More information
-Please refer to [the documentation for how to use the mustache](http://mustache.github.io/mustache.5.html) as the need arises.<br />
-`bbmustache` supports all of the syntax that is described in it.<br />
-
-If you want more information regarding the use of `bbmustache`, please see the `bbmustache`'s [document](doc).
+- For the alias of mustache, Please refer to [ManPage](http://mustache.github.io/mustache.5.html) and [Specification](https://github.com/mustache/spec)
+- For the options of this library, please see [doc](doc)
+- For the functions supported by this library, please see [here](benchmarks/README.md)
 
 ## FAQ
 
 ### Avoid http escaping
 
 ```erlang
-%% please use {{{tag}}}
-1> bbmustache:render(<<"<h1>{{{tag}}}</h1>">>, #{"tag" => "I like Erlang & mustache"}).
+%% Please use `{{{tag}}}`
+1> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{"title" => "I like Erlang & mustache"}).
+<<"<h1>I like Erlang & mustache</h1>">>
+
+%% If you should not want to use `{{{tag}}}`, escape_fun can be use.
+1> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{"title" => "I like Erlang & mustache"}, [{escape_fun, fun(X) -> X end}]).
 <<"<h1>I like Erlang & mustache</h1>">>
 ```
 
-### Want to use symbol of tag
+### Already used `{` and `}` for other uses (like escript)
 
 ```erlang
-1> bbmustache:render(<<"{{=<< >>=}} <<tag>>, <<={{ }}=>> {{tag}}">>, #{"tag" => "hi"}).
-<<" hi,  hi">>
+1> io:format(bbmustache:render(<<"
+1> {{=<< >>=}}
+1> {deps, [
+1>   <<#deps>>
+1>   {<<name>>, \"<<version>>\"}<<^last?>>,<</last?>>
+1>   <</deps>>
+1> ]}.
+1> ">>, #{"deps" => [
+1>   #{"name" => "bbmustache", "version" => "1.6.0"},
+1>   #{"name" => "jsone", "version" => "1.4.6", "last?" => true}
+1> ]})).
+
+{deps, [
+  {bbmustache, "1.6.0"},
+  {jsone, "1.4.6"}
+]}.
+ok
 ```
 
-### Want to change the type of the key
+### Want to use something other than string for key
 
 ```erlang
-1> bbmustache:render(<<"{{tag}}">>, #{tag => "hi"}, [{key_type, atom}]).
-<<"hi">>
+1> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{title => "I like Erlang & mustache"}, [{key_type, atom}]).
+<<"<h1>I like Erlang & mustache</h1>">>
+
+2> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => "I like Erlang & mustache"}, [{key_type, binary}]).
+<<"<h1>I like Erlang & mustache</h1>">>
+```
+
+### Want to provide a custom serializer for Erlang Terms
+
+```erlang
+1> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{title => "I like Erlang & mustache"}, [{key_type, atom}, {value_serializer, fun(X) -> X end}]).
+<<"<h1>I like Erlang &amp; mustache</h1>">>
+
+2> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => "I like Erlang & mustache"}, [{key_type, binary}, {value_serializer, fun(X) -> <<"replaced">> end}]).
+<<"<h1>replaced</h1>">>
+
+3> bbmustache:render(<<"<h1>{{{title}}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
+<<"<h1>{\"nested\": \"value\"}</h1>">>
+
+4> bbmustache:render(<<"<h1>{{title}}</h1>">>, #{<<"title">> => #{<<"nested">> => <<"value">>}}, [{key_type, binary}, {value_serializer, fun(X) -> jsone:encode(X) end}]).
+<<"<h1>{&quot;nested&quot;:&quot;value&quot;}</h1>">>
 ```
 
 ## Attention
 - Lambda expression is included wasted processing.
- - Because it is optimized to `parse_string/1` + `compile/2`.
+  - Because it is optimized to `parse_binary/1` + `compile/2`.
 
-## Simple Benchmark
-
-||[moyombo/mustache.erl](https://github.com/mojombo/mustache.erl)|[soranoba/bbmustache](https://github.com/soranoba/bbmustache)|
-|:--|:---|:---|
-|score (time) |1016414 |33001|
-
-- [Benchmark script](https://gist.github.com/soranoba/6c4bf489714618366a1c)
-
-In this case, it is 30 times faster than moyombo/mustache.erl
+## Comparison with other libraries
+[Benchmarks and check the reference implementation](benchmarks/README.md)
 
 ## Contribute
 Pull request is welcome =D

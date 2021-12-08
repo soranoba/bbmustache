@@ -10,19 +10,18 @@
          init_per_group/2, end_per_group/2,
 
          variables_ct/1, sections_ct1/1, sections_ct2/1, sections_ct3/1, sections_ct4/1,
-         lambdas_ct/1, comments_ct/1, partials_ct/1, delimiter_ct/1, dot_ct/1, dot_unescape_ct/1
+         lambdas_ct/1, comments_ct/1, partials_ct/1, delimiter_ct/1, dot_ct/1, dot_unescape_ct/1,
+         indent_partials_ct/1, not_found_partials_ct1/1, not_found_partials_ct2/1, not_found_partials_ct3/1,
+         context_stack_ct/1, context_stack_ct2/1, partial_custom_reader_ct/1,
+         unicode_render_ct/1
         ]).
 -define(ALL_TEST, [variables_ct, sections_ct1, sections_ct2, sections_ct3, sections_ct4,
-                   lambdas_ct, comments_ct, partials_ct, delimiter_ct, dot_ct, dot_unescape_ct]).
+                   lambdas_ct, comments_ct, partials_ct, delimiter_ct, dot_ct, dot_unescape_ct,
+                   indent_partials_ct, not_found_partials_ct1, not_found_partials_ct2, not_found_partials_ct3,
+                   context_stack_ct, context_stack_ct2, partial_custom_reader_ct, unicode_render_ct]).
 
 -define(config2, proplists:get_value).
 -define(debug(X), begin io:format("~p", [X]), X end).
-
--ifdef(namespaced_types).
--define(OTP17(X, Y), X).
--else.
--define(OTP17(X, Y), Y).
--endif.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'common_test' Callback API
@@ -49,7 +48,6 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    ct:log(?OTP17("otp17 or later", "before otp17")),
     Config.
 
 end_per_suite(_) ->
@@ -57,15 +55,12 @@ end_per_suite(_) ->
 
 init_per_group(assoc_list, Config) ->
     [{data_conv, fun(X) -> X end} | Config];
-init_per_group(maps, _Config) ->
-    ?OTP17([{data_conv, fun list_to_maps_recursive/1} | _Config],
-           {skip, map_is_unsupported});
-init_per_group(assoc_list_into_maps, _Config) ->
-    ?OTP17([{data_conv, fun maps:from_list/1} | _Config],
-           {skip, map_is_unsupported});
-init_per_group(maps_into_assoc_list, _Config) ->
-    ?OTP17([{data_conv, fun(X) -> deps_list_to_maps(X, 2) end} | _Config],
-           {skip, map_is_unsupported});
+init_per_group(maps, Config) ->
+    [{data_conv, fun list_to_maps_recursive/1} | Config];
+init_per_group(assoc_list_into_maps, Config) ->
+    [{data_conv, fun maps:from_list/1} | Config];
+init_per_group(maps_into_assoc_list, Config) ->
+    [{data_conv, fun(X) -> deps_list_to_maps(X, 2) end} | Config];
 init_per_group(atom_key, Config) ->
     [{data_conv, fun(X) -> key_conv_recursive(X, fun erlang:list_to_atom/1) end},
      {options, [{key_type, atom}]}
@@ -163,11 +158,92 @@ dot_unescape_ct(Config) ->
     Data = [{"mylist", ["<b>Item 1</b>", "<b>Item 2</b>", "<b>Item 3</b>"]}],
     ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
 
+indent_partials_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"a.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"a.result">>])),
+
+    Data = [{"sections", [[{"section", "1st section"}], [{"section", "2nd section"}]]}],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+
+not_found_partials_ct1(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"not_found_partial.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"not_found_partial.result">>])),
+
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))([])), ?config2(options, Config, []))).
+
+not_found_partials_ct2(Config) ->
+    ?assertError({file_not_found, <<"does_not_exist_template">>, enoent},
+                 bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"not_found_partial.mustache">>]),
+                                       [raise_on_partial_miss])).
+
+not_found_partials_ct3(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"not_found_partial.mustache">>])),
+    ?assertError({context_missing, {file_not_found, <<"does_not_exist_template">>}},
+                 bbmustache:compile(Template, ?debug((?config(data_conv, Config))([])),
+                                          ?config2(options, Config, []) ++ [raise_on_context_miss])).
+
+context_stack_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"context.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"context.result">>])),
+
+    Data = [{"a", [{"A", [{"1", "&"}]}]}, {"b", [{"B", [{"2", "<"}]}]}, {"c", [{"C", [{"3", ">"}]}]}],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+
+context_stack_ct2(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"context2.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"context2.result">>])),
+
+    Data = [
+            {"items", [[{"item", 1}], [{"item", 2}], [{"item", 3}]]},
+            {"a", [{"b", ["A", "B", "C"]}]}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data)), ?config2(options, Config, []))).
+
+partial_custom_reader_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"not_found_partial.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"not_found_partial.result">>])),
+
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))([])),
+                                          ?config2(options, Config, []) ++ [{partial_file_reader, fun(_, Key) -> Key end}])).
+
+-ifdef(unicode_supported).
+unicode_render_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"unicode.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"unicode.result">>])),
+
+    Data1 = [
+            {"whoami", "猫"},
+            {"name", "まだない"}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data1)), ?config2(options, Config, []))),
+
+    Data2 = [
+            {"whoami", <<"猫"/utf8>>},
+            {"name", <<"まだない"/utf8>>}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data2)), ?config2(options, Config, []))),
+
+    Data3 = [
+            {"whoami", '猫'},
+            {"name", 'まだない'}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data3)), ?config2(options, Config, []))).
+-else.
+unicode_render_ct(Config) ->
+    Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"unicode.mustache">>])),
+    {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"unicode.result">>])),
+
+    Data1 = [
+            {"whoami", "猫"},
+            {"name", "まだない"}
+           ],
+    ?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Data1)), ?config2(options, Config, []))).
+-endif.
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
 
--ifdef(namespaced_types).
 %% @doc Recursively converted `map' into `assoc list'.
 list_to_maps_recursive([{_, _} | _] = AssocList) ->
     lists:foldl(fun({Key, [{_, _} | _] = Value}, Map) ->
@@ -191,8 +267,6 @@ deps_list_to_maps(AssocList, Deps) when Deps > 1 ->
                             [{Key, Value} | Acc]
                     end, [], AssocList),
     lists:reverse(R).
-
--endif.
 
 %% @doc Recursively converted keys in assoc list.
 key_conv_recursive([{_, _} | _] = AssocList, ConvFun) ->
