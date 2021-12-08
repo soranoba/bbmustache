@@ -38,6 +38,22 @@ custom_serializer_test_() ->
       end}
     ].
 
+custom_default_test_() ->
+    [
+     {"simple default replacement",
+      fun() ->
+              ?assertEqual(<<"test, test">>,
+                           bbmustache:render(<<"{{i}}, {{f}}">>,
+                                             [], [{default_value, fun(_X) -> <<"test">> end}]))
+      end},
+     {"default modifier",
+      fun() ->
+              ?assertEqual(<<"&lt;Jedi&gt;">>,
+                           bbmustache:render(<<"{{Jedi}}">>,
+                                             [], [{default_value, fun(X) -> "<" ++ X ++ ">" end}]))
+      end}
+    ].
+
 parse_binary_test_() ->
     [
      {"bbmustache:template/0 format check", ?NT_S([], <<>>)},

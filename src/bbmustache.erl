@@ -267,6 +267,9 @@ default_partial_file_reader(Dirname, Key) ->
 %% Internal Function
 %%----------------------------------------------------------------------------------------------------------------------
 
+get_default(_) ->
+    <<>>.
+
 %% @doc {@link compile/2}
 %%
 %% ATTENTION: The result is a list that is inverted.
@@ -275,12 +278,14 @@ compile_impl([], _, Result, _) ->
     Result;
 compile_impl([{n, Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
-    Value = unicode:characters_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
+    DefaultValue = proplists:get_value(default_value, State#?MODULE.options, fun get_default/1),
+    Value = unicode:characters_to_binary(ValueSerializer(get_data_recursive(Keys, Data, DefaultValue, State))),
     EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
     compile_impl(T, Data, ?ADD(EscapeFun(Value), Result), State);
 compile_impl([{'&', Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
-    compile_impl(T, Data, ?ADD(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State)), Result), State);
+    DefaultValue = proplists:get_value(default_value, State#?MODULE.options, fun get_default/1),
+    compile_impl(T, Data, ?ADD(ValueSerializer(get_data_recursive(Keys, Data, DefaultValue, State)), Result), State);
 compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
     Value = get_data_recursive(Keys, Data, false, State),
     NestedState = State#?MODULE{context_stack = [Value | State#?MODULE.context_stack]},
@@ -645,14 +650,14 @@ convert_keytype(KeyBin, #?MODULE{options = Options}) ->
 %%
 %% - If `Keys' is `[<<".">>]', it returns current context.
 %% - If raise_on_context_miss enabled, it raise an exception when missing `Keys'. Otherwise, it returns `Default'.
--spec get_data_recursive([key()], data(), Default :: term(), template()) -> term().
+-spec get_data_recursive([key()], data(), Default :: fun(), template()) -> term().
 get_data_recursive(Keys, Data, Default, Template) ->
     case get_data_recursive_impl(Keys, Data, Template) of
         {ok, Term} -> Term;
         error      ->
             case ?RAISE_ON_CONTEXT_MISS_ENABLED(Template#?MODULE.options) of
                 true  -> error(?CONTEXT_MISSING_ERROR({key, binary_join(Keys, <<".">>)}));
-                false -> Default
+                false -> Default(Keys)
             end
     end.
 
