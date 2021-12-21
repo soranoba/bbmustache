@@ -3,15 +3,15 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 39122 |
-|mustache.erl | 673416 |
+|bbmustache | 18953 |
+|mustache.erl | 277171 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.
 
 
 ## comments
-https://github.com/mustache/spec/tree/v1.2.1/specs/comments.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/comments.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -29,7 +29,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/comments.yml
 
 
 ## delimiters
-https://github.com/mustache/spec/tree/v1.2.1/specs/delimiters.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/delimiters.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -37,7 +37,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/delimiters.yml
 |Special Characters|:white_check_mark:||
 |Sections|:white_check_mark:||
 |Inverted Sections|:white_check_mark:||
-|Partial Inheritance|:white_check_mark:||
+|Partial Inheritence|:white_check_mark:||
 |Post-Partial Behavior|:white_check_mark:||
 |Surrounding Whitespace|:white_check_mark:||
 |Outlying Whitespace (Inline)|:white_check_mark:||
@@ -50,7 +50,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/delimiters.yml
 
 
 ## interpolation
-https://github.com/mustache/spec/tree/v1.2.1/specs/interpolation.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/interpolation.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -96,7 +96,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/interpolation.yml
 
 
 ## inverted
-https://github.com/mustache/spec/tree/v1.2.1/specs/inverted.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/inverted.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -125,7 +125,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/inverted.yml
 
 
 ## partials
-https://github.com/mustache/spec/tree/v1.2.1/specs/partials.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/partials.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -143,7 +143,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/partials.yml
 
 
 ## sections
-https://github.com/mustache/spec/tree/v1.2.1/specs/sections.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/sections.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -180,7 +180,7 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/sections.yml
 
 
 ## ~inheritance
-https://github.com/mustache/spec/tree/v1.2.1/specs/~inheritance.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/~inheritance.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -205,10 +205,11 @@ https://github.com/mustache/spec/tree/v1.2.1/specs/~inheritance.yml
 |Multi-level inheritance, no sub child|||
 |Text inside parent|||
 |Text inside parent|||
+|Block scope|||
 
 
 ## ~lambdas
-https://github.com/mustache/spec/tree/v1.2.1/specs/~lambdas.yml
+https://github.com/mustache/spec/tree/v1.2.2/specs/~lambdas.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
