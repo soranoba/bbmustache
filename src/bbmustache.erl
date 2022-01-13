@@ -21,6 +21,7 @@
          parse_file/2,
          compile/2,
          compile/3,
+         default_escape/1,
          default_value_serializer/1,
          default_partial_file_reader/2
         ]).
@@ -239,6 +240,11 @@ compile(#?MODULE{data = Tags} = T, Data, Options) ->
     Ret = compile_impl(Tags, Data, [], T#?MODULE{options = Options, data = [], context_stack = [Data]}),
     iolist_to_binary(lists:reverse(Ret)).
 
+%% @doc Default escape function.
+-spec default_escape(binary()) -> binary().
+default_escape(Bin) ->
+    << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
+
 %% @doc Default value serializer for templtated values
 -spec default_value_serializer(number() | binary() | string() | atom()) -> iodata().
 default_value_serializer(Integer) when is_integer(Integer) ->
@@ -276,7 +282,7 @@ compile_impl([], _, Result, _) ->
 compile_impl([{n, Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
     Value = unicode:characters_to_binary(ValueSerializer(get_data_recursive(Keys, Data, <<>>, State))),
-    EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun escape/1),
+    EscapeFun = proplists:get_value(escape_fun, State#?MODULE.options, fun default_escape/1),
     compile_impl(T, Data, ?ADD(EscapeFun(Value), Result), State);
 compile_impl([{'&', Keys} | T], Data, Result, State) ->
     ValueSerializer = proplists:get_value(value_serializer, State#?MODULE.options, fun default_value_serializer/1),
@@ -613,11 +619,6 @@ to_binary(Bin) when is_binary(Bin) ->
     Bin;
 to_binary(Bytes) when is_list(Bytes) ->
     list_to_binary(Bytes).
-
-%% @doc HTML Escape
--spec escape(binary()) -> binary().
-escape(Bin) ->
-    << <<(escape_char(X))/binary>> || <<X:8>> <= Bin >>.
 
 %% @doc escape a character if needed.
 -spec escape_char(byte()) -> <<_:8, _:_*8>>.
