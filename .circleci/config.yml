@@ -21,6 +21,10 @@ workflows:
   general:
     jobs:
       - test:
+          name: "test-25"
+          version: "25"
+          commands: "ci edoc"
+      - test:
           name: "test-24"
           version: "24"
           commands: "ci edoc"
