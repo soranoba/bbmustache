@@ -19,7 +19,7 @@ A logic-less templates.
 ### Quick start
 
 ```bash
-$ git clone git://github.com/soranoba/bbmustache.git
+$ git clone https://github.com/soranoba/bbmustache.git
 $ cd bbmustache
 $ make start
 Erlang/OTP 17 [erts-6.3] [source-f9282c6] [64-bit] [smp:4:4] [async-threads:10] [hipe] [kernel-poll:true]
@@ -39,7 +39,7 @@ Add the following settings.
 
 {deps,
   [
-   {bbmustache, ".*", {git, "git://github.com/soranoba/bbmustache.git", {branch, "master"}}}
+   {bbmustache, ".*", {git, "https://github.com/soranoba/bbmustache.git", {branch, "master"}}}
   ]}.
 
 %% rebar3 (rebar.config)
