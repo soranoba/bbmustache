@@ -1,0 +1,19 @@
+List 1 length: {{ list1.length }}
+List 1 empty: {{ list1.empty }}
+
+List 2 length: {{ list2.length }}
+List 2 empty: {{ list2.empty }}
+
+{{# list1.empty }}
+Should not show
+{{/ list1.empty }}
+{{^ list1.empty }}
+List 1 is not empty
+{{/ list1.empty }}
+
+{{# list2.empty }}
+List 2 is empty
+{{/ list2.empty }}
+{{^ list2.empty }}
+Should now show
+{{/ list2.empty }}
