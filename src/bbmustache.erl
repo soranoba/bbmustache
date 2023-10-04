@@ -518,8 +518,17 @@ split_tag(#state{start = StartDelimiter, stop = StopDelimiter}, Bin) ->
 
 %% @doc Returns true if treated as false. Otherwise it returns false.
 -spec is_falsy(term()) -> boolean().
-is_falsy(Value) ->
-    Value =:= [] orelse Value =:= false orelse Value =:= nil orelse Value =:= null orelse Value =:= <<"">>.
+is_falsy(Value) when
+    Value =:= [];
+    Value =:= false;
+    Value =:= nil;
+    Value =:= null;
+    Value =:= <<"">>;
+    Value =:= undefined
+->
+    true;
+is_falsy(_) ->
+    false.
 
 %% @doc if it is standalone line, remove spaces from edge.
 -spec standalone(#state{}, binary(), [tag()]) -> {#state{}, StashPre :: binary(), Post :: binary(), [tag()]}.
