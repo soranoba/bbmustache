@@ -679,7 +679,14 @@ get_data_recursive_impl([<<".">>], _, #?MODULE{context_stack = [Context | _]}) -
 get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = Stack} = State) ->
     case is_recursive_data(Data) andalso find_data(convert_keytype(Key, State), Data) of
         {ok, ChildData} ->
-            get_data_recursive_impl(RestKey, ChildData, State#?MODULE{context_stack = []});
+            case {is_recursive_data(ChildData), RestKey} of
+                {false, [<<"length">>]} when is_list(ChildData) ->
+                    {ok, length(ChildData)};
+                {false, [<<"empty">>]} when is_list(ChildData) ->
+                    {ok, length(ChildData) =:= 0};
+                _ ->
+                    get_data_recursive_impl(RestKey, ChildData, State#?MODULE{context_stack = []})
+            end;
         _ when Stack =:= [] ->
             error;
         _ ->
