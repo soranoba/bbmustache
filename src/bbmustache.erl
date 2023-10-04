@@ -162,11 +162,7 @@
 %% The default is `string/0'.
 %% If you want to change this, you need to specify `key_type' in {@link compile_option/0}.
 
--ifdef(namespaced_types).
 -type recursive_data() :: #{data_key() => term()} | [{data_key(), term()}].
--else.
--type recursive_data() :: [{data_key(), term()}].
--endif.
 %% It is a part of {@link data/0} that can have child elements.
 
 -type endtag()    :: {endtag, {state(), [key()], LastTagSize :: non_neg_integer(), Rest :: binary(), Result :: [tag()]}}.
@@ -704,7 +700,6 @@ get_data_recursive_impl([Key | RestKey] = Keys, Data, #?MODULE{context_stack = S
 
 %% @doc find the value of the specified key from {@link recursive_data/0}
 -spec find_data(data_key(), recursive_data() | term()) -> {ok, Value :: term()} | error.
--ifdef(namespaced_types).
 find_data(Key, Map) when is_map(Map) ->
     maps:find(Key, Map);
 find_data(Key, AssocList) when is_list(AssocList) ->
@@ -714,26 +709,12 @@ find_data(Key, AssocList) when is_list(AssocList) ->
     end;
 find_data(_, _) ->
     error.
--else.
-find_data(Key, AssocList) ->
-    case proplists:lookup(Key, AssocList) of
-        none   -> error;
-        {_, V} -> {ok, V}
-    end;
-find_data(_, _) ->
-    error.
--endif.
 
 %% @doc When the value is {@link recursive_data/0}, it returns true. Otherwise it returns false.
 -spec is_recursive_data(recursive_data() | term()) -> boolean().
--ifdef(namespaced_types).
 is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
 is_recursive_data(V) when is_map(V)                 -> true;
 is_recursive_data(_)                                -> false.
--else.
-is_recursive_data([Tuple | _]) when is_tuple(Tuple) -> true;
-is_recursive_data(_)                                -> false.
--endif.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Escriptize
