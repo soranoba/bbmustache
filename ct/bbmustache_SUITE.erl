@@ -88,11 +88,16 @@ sections_ct1(Config) ->
     Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"false_values.mustache">>])),
     {ok, File} = file:read_file(filename:join([?config(data_dir, Config), <<"false_values.result">>])),
 
-    Data1 = [{"person", false}],
-    Data2 = [{"person", []}],
-    Data3 = [],
-    [?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(X)), ?config2(options, Config, [])))
-    || X <- [Data1, Data2, Data3]].
+    Tests = [
+        [{"person", false}],
+        [{"person", []}],
+        [{"person", nil}],
+        [{"person", null}],
+        [{"person", <<"">>}],
+        [{"person", undefined}]
+    ],
+    [?assertEqual(File, bbmustache:compile(Template, ?debug((?config(data_conv, Config))(Test)), ?config2(options, Config, [])))
+    || Test <- Tests].
 
 sections_ct2(Config) ->
     Template   = bbmustache:parse_file(filename:join([?config(data_dir, Config), <<"non-empty.mustache">>])),
