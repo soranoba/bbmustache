@@ -767,7 +767,7 @@ process_render(Opts, TemplateFileNames) ->
                   end, TemplateFileNames).
 
 %% Prints usage/help.
--spec print_help(getopt:output_stream()) -> ok.
+-spec print_help('standard_io' | 'standard_error') -> ok.
 print_help(OutputStream) ->
     getopt:usage(option_spec_list(), escript:script_name(), "template_files ...", OutputStream).
 

@@ -9,7 +9,7 @@ Binary pattern match Based Mustache template engine for Erlang/OTP.
 - Binary pattern match based mustache template engine for Erlang/OTP.
   - It means do not use regular expressions.
 - Support maps and associative arrays.
-- Officially support is OTP17 or later.
+- Officially support is OTP24 or later.
 
 ### What is Mustache ?
 A logic-less templates.

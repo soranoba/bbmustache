@@ -8,10 +8,7 @@ jobs:
       commands:
         type: string
     docker:
-      - image: circleci/erlang:<< parameters.version >>
-        auth:
-          username: $DOCKERHUB_USER
-          password: $DOCKERHUB_PASSWORD
+      - image: cimg/elixir:<< parameters.version >>
     steps:
       - checkout
       - run: rm -rf _build; make << parameters.commands >>
@@ -21,30 +18,14 @@ workflows:
   general:
     jobs:
       - test:
+          name: "test-26"
+          version: "1.15.7-erlang-26.0.2"
+          commands: "ci edoc"
+      - test:
+          name: "test-25"
+          version: "1.15.7-erlang-25.3.2"
+          commands: "ci edoc"
+      - test:
           name: "test-24"
-          version: "24"
+          version: "1.15.7-erlang-24.3.4"
           commands: "ci edoc"
-      - test:
-          name: "test-23.3"
-          version: "23.3"
-          commands: "ci edoc"
-      - test:
-          name: "test-22.3"
-          version: "22.3"
-          commands: "ci edoc"
-      - test:
-          name: "test-21.3"
-          version: "21.3"
-          commands: "ci edoc"
-      - test:
-          name: "test-20.3"
-          version: "20.3"
-          commands: "ci"
-      - test:
-          name: "test-19.3"
-          version: "19.3"
-          commands: "ci"
-      - test:
-          name: "test-18.3"
-          version: "18.3"
-          commands: "ci"
