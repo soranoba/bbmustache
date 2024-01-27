@@ -3,15 +3,15 @@
 
 |Library|Time  |
 |:------|:-----|
-|bbmustache | 18953 |
-|mustache.erl | 277171 |
+|bbmustache | 14362 |
+|mustache.erl | 152821 |
 
 # Check the reference implementation
 :warning: For libraries other than bbmustache, there is a possibility that there is a miss.
 
 
 ## comments
-https://github.com/mustache/spec/tree/v1.2.2/specs/comments.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/comments.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -26,10 +26,11 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/comments.yml
 |Indented Multiline Standalone|:white_check_mark:||
 |Indented Inline|:white_check_mark:|:white_check_mark:|
 |Surrounding Whitespace|:white_check_mark:|:white_check_mark:|
+|Variable Name Collision|:white_check_mark:|:white_check_mark:|
 
 
 ## delimiters
-https://github.com/mustache/spec/tree/v1.2.2/specs/delimiters.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/delimiters.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -50,7 +51,7 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/delimiters.yml
 
 
 ## interpolation
-https://github.com/mustache/spec/tree/v1.2.2/specs/interpolation.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/interpolation.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -96,7 +97,7 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/interpolation.yml
 
 
 ## inverted
-https://github.com/mustache/spec/tree/v1.2.2/specs/inverted.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/inverted.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -125,7 +126,7 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/inverted.yml
 
 
 ## partials
-https://github.com/mustache/spec/tree/v1.2.2/specs/partials.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/partials.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -133,6 +134,7 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/partials.yml
 |Failed Lookup|:white_check_mark:||
 |Context|:white_check_mark:||
 |Recursion|:white_check_mark:||
+|Nested|:white_check_mark:||
 |Surrounding Whitespace|:white_check_mark:||
 |Inline Indentation|:white_check_mark:||
 |Standalone Line Endings|:white_check_mark:||
@@ -143,7 +145,7 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/partials.yml
 
 
 ## sections
-https://github.com/mustache/spec/tree/v1.2.2/specs/sections.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/sections.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -165,6 +167,10 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/sections.yml
 |Implicit Iterator - Integer|:white_check_mark:||
 |Implicit Iterator - Decimal|:white_check_mark:||
 |Implicit Iterator - Array|:white_check_mark:||
+|Implicit Iterator - HTML Escaping|:white_check_mark:||
+|Implicit Iterator - Triple mustache|:white_check_mark:||
+|Implicit Iterator - Ampersand|:white_check_mark:||
+|Implicit Iterator - Root-level|:white_check_mark:||
 |Dotted Names - Truthy|:white_check_mark:||
 |Dotted Names - Falsey|:white_check_mark:||
 |Dotted Names - Broken Chains|:white_check_mark:||
@@ -179,8 +185,36 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/sections.yml
 |Padding|:white_check_mark:|:white_check_mark:|
 
 
+## ~dynamic-names
+https://github.com/mustache/spec/tree/v1.4.1/specs/~dynamic-names.yml
+
+|    |bbmustache|mustache.erl|
+|:---|:------------|:------------|
+|Basic Behavior - Partial|||
+|Basic Behavior - Name Resolution|||
+|Context Misses - Partial|:white_check_mark:||
+|Failed Lookup - Partial|:white_check_mark:||
+|Context|||
+|Dotted Names|||
+|Dotted Names - Operator Precedence|:white_check_mark:||
+|Dotted Names - Failed Lookup|||
+|Dotted names - Context Stacking|||
+|Dotted names - Context Stacking Under Repetition|||
+|Dotted names - Context Stacking Failed Lookup|||
+|Recursion|||
+|Dynamic Names - Double Dereferencing|:white_check_mark:||
+|Dynamic Names - Composed Dereferencing|:white_check_mark:||
+|Surrounding Whitespace|||
+|Inline Indentation|||
+|Standalone Line Endings|||
+|Standalone Without Previous Line|||
+|Standalone Without Newline|||
+|Standalone Indentation|||
+|Padding Whitespace|||
+
+
 ## ~inheritance
-https://github.com/mustache/spec/tree/v1.2.2/specs/~inheritance.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/~inheritance.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
@@ -206,10 +240,15 @@ https://github.com/mustache/spec/tree/v1.2.2/specs/~inheritance.yml
 |Text inside parent|||
 |Text inside parent|||
 |Block scope|||
+|Standalone parent|||
+|Standalone block|||
+|Block reindentation|||
+|Intrinsic indentation|||
+|Nested block reindentation|||
 
 
 ## ~lambdas
-https://github.com/mustache/spec/tree/v1.2.2/specs/~lambdas.yml
+https://github.com/mustache/spec/tree/v1.4.1/specs/~lambdas.yml
 
 |    |bbmustache|mustache.erl|
 |:---|:------------|:------------|
