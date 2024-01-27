@@ -302,7 +302,20 @@ compile_impl([{'#', Keys, Tags, Source} | T], Data, Result, State) ->
             end, Result, Value),
             compile_impl(T, Data, NextResult, State);
         _ when is_function(Value, 2) ->
-            Ret = Value(Source, fun(Text) -> render(Text, Data, State#?MODULE.options) end),
+            Ret = Value(
+                Source,
+                fun(Text) ->
+                    {ParseOptions, _CompileOptions}
+                        = lists:partition(fun(X) ->
+                                            lists:member(?IIF(is_tuple(X), element(1, X), X), ?PARSE_OPTIONS)
+                                        end, State#?MODULE.options),
+                        #?MODULE{data = NextTags} = parse_binary(Text, ParseOptions),
+
+                        Ret = compile_impl(NextTags, Data, [], State),
+                        iolist_to_binary(lists:reverse(Ret))
+
+                end
+            ),
             compile_impl(T, Data, ?ADD(Ret, Result), State);
         _ ->
             compile_impl(T, Data, compile_impl(Tags, Value, Result, NestedState), State)
