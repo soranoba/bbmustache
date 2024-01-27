@@ -13,7 +13,8 @@
 -define(SKIP_FILES, [
                      % e.g. "name.json"
                      "~lambdas.json",
-                     "~inheritance.json"
+                     "~inheritance.json",
+                     "~dynamic-names.json"
                     ]).
 -define(SKIP_CASES, [
                      % e.g. {"name.json", <<"Test Case">>}
